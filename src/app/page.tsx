@@ -12,6 +12,21 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { IconType } from "react-icons";
+import {
+  FaMusic,
+  FaHeadphones,
+  FaGuitar,
+  FaDrum,
+  FaMicrophone,
+  FaCompactDisc,
+  FaRecordVinyl,
+} from "react-icons/fa";
+import {
+  GiPianoKeys,
+  GiSaxophone,
+  GiViolin,
+} from "react-icons/gi";
 
 /** Represents a single 5s segment's sentiment data */
 interface SegmentSentiment {
@@ -39,6 +54,27 @@ interface GenrePrediction {
   name: string;
   score: number; // 0..1
 }
+
+/** Represents a sentiment with its rendering order and opacity */
+interface ShuffledSentiment {
+  sentiment: "valence" | "arousal" | "dominance";
+  opacity: number;
+}
+
+/** Mapping of genre names to corresponding icons */
+const genreIconMap: Record<string, IconType> = {
+  Pop: FaMusic,
+  Rock: FaGuitar,
+  HipHop: FaMicrophone,
+  EDM: FaHeadphones,
+  Classical: GiViolin,
+  Jazz: GiSaxophone,
+  Metal: FaDrum,
+  Country: FaGuitar,
+  Blues: FaGuitar,
+  Reggae: FaHeadphones,
+  // Add more genres and their corresponding icons as needed
+};
 
 export default function Home() {
   // ----- STAGE MANAGEMENT -----
@@ -70,6 +106,40 @@ export default function Home() {
 
   // ----- GENRE DATA -----
   const [genres, setGenres] = useState<GenrePrediction[]>([]);
+
+  // ----- Shuffled Sentiments State -----
+  const sentiments: Array<"valence" | "arousal" | "dominance"> = ["valence", "arousal", "dominance"];
+  const [shuffledSentiments, setShuffledSentiments] = useState<ShuffledSentiment[]>(() => shuffleSentiments());
+
+  /** 
+   * Shuffle the sentiments array and assign unique opacities
+   * Ensures no two sentiments have the same z-index or opacity
+   */
+  function shuffleSentiments(): ShuffledSentiment[] {
+    // Shuffle the sentiments array
+    const shuffled = [...sentiments].sort(() => Math.random() - 0.5);
+
+    // Assign unique opacities (e.g., 0.6, 0.5, 0.4)
+    const opacities = [0.6, 0.5, 0.4].sort(() => Math.random() - 0.5);
+
+    // Map shuffled sentiments to their opacities
+    return shuffled.map((sentiment, index) => ({
+      sentiment,
+      opacity: opacities[index],
+    }));
+  }
+
+  // ----- Update Shuffled Sentiments at Intervals -----
+  useEffect(() => {
+    if (stage !== "processing") return;
+
+    // Shuffle sentiments every 2 seconds
+    const shuffleInterval = setInterval(() => {
+      setShuffledSentiments(shuffleSentiments());
+    }, 2000); // Change interval as desired
+
+    return () => clearInterval(shuffleInterval);
+  }, [stage]);
 
   // ----- Animation Ref -----
   const rafId = useRef<number | null>(null);
@@ -138,8 +208,20 @@ export default function Home() {
   }, [stage]);
 
   // ----- Handle File Upload -----
+  const [error, setError] = useState<string | null>(null);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+    
+    const file = e.target.files[0];
+    
+    // Simple file type validation
+    if (!file.type.startsWith("audio/")) {
+      setError("Please upload a valid audio file.");
+      return;
+    }
+    
+    setError(null);
     setStage("uploading");
 
     // Simulate upload delay
@@ -160,9 +242,9 @@ export default function Home() {
                 ...seg,
                 locked: true,
                 // Upon locking, set target to current value to stop changes
-                valence: { ...seg.valence, target: seg.valence.value },
-                arousal: { ...seg.arousal, target: seg.arousal.value },
-                dominance: { ...seg.dominance, target: seg.dominance.value },
+                valence: { ...seg.valence, target: seg.valence.value, speed: 0 },
+                arousal: { ...seg.arousal, target: seg.arousal.value, speed: 0 },
+                dominance: { ...seg.dominance, target: seg.dominance.value, speed: 0 },
               }
             : seg
         )
@@ -178,7 +260,13 @@ export default function Home() {
             { name: "Rock", score: Math.random() },
             { name: "EDM", score: Math.random() },
             { name: "Classical", score: Math.random() },
-            { name: "Hip-Hop", score: Math.random() },
+            { name: "HipHop", score: Math.random() },
+            { name: "Jazz", score: Math.random() },
+            { name: "Metal", score: Math.random() },
+            { name: "Country", score: Math.random() },
+            { name: "Blues", score: Math.random() },
+            { name: "Reggae", score: Math.random() },
+            // Add more genres as needed
           ]
             .sort((a, b) => b.score - a.score)
             .slice(0, 3);
@@ -220,19 +308,6 @@ export default function Home() {
 
   // ----- Render Circular Area Chart -----
   const renderCircularAreaChart = () => {
-    // Define sentiments and their colors
-    const sentiments: Array<"valence" | "arousal" | "dominance"> = ["valence", "arousal", "dominance"];
-    const colors: Record<string, string> = {
-      valence: "rgba(136, 132, 216, 0.4)", // Purple
-      arousal: "rgba(130, 202, 157, 0.4)", // Green
-      dominance: "rgba(255, 198, 88, 0.4)", // Yellow
-    };
-    const strokeColors: Record<string, string> = {
-      valence: "#8884d8",
-      arousal: "#82ca9d",
-      dominance: "#ffc658",
-    };
-
     return (
       <svg
         width={400}
@@ -240,7 +315,7 @@ export default function Home() {
         viewBox="-200 -200 400 400"
         className="absolute"
       >
-        {sentiments.map((sentiment) => {
+        {shuffledSentiments.map(({ sentiment, opacity }, index) => {
           const points = segments.map((seg, i) => {
             const angle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2; // Start from top
             const sentimentValue = seg[sentiment].value;
@@ -256,14 +331,50 @@ export default function Home() {
             <path
               key={sentiment}
               d={path}
-              fill={colors[sentiment]}
-              stroke={strokeColors[sentiment]}
+              fill={`rgba(${getRGB(sentiment)}, ${opacity})`}
+              stroke={getStrokeColor(sentiment)}
               strokeWidth={2}
             />
           );
         })}
       </svg>
     );
+  };
+
+  /**
+   * Get RGB values based on sentiment
+   * @param sentiment - "valence" | "arousal" | "dominance"
+   * @returns RGB string
+   */
+  const getRGB = (sentiment: "valence" | "arousal" | "dominance"): string => {
+    switch (sentiment) {
+      case "valence":
+        return "136, 132, 216"; // Purple
+      case "arousal":
+        return "130, 202, 157"; // Green
+      case "dominance":
+        return "255, 198, 88"; // Yellow
+      default:
+        return "0,0,0";
+    }
+  };
+
+  /**
+   * Get stroke color based on sentiment
+   * @param sentiment - "valence" | "arousal" | "dominance"
+   * @returns Hex color string
+   */
+  const getStrokeColor = (sentiment: "valence" | "arousal" | "dominance"): string => {
+    switch (sentiment) {
+      case "valence":
+        return "#8884d8";
+      case "arousal":
+        return "#82ca9d";
+      case "dominance":
+        return "#ffc658";
+      default:
+        return "#000000";
+    }
   };
 
   // ----- Prepare Data for Recharts -----
@@ -276,14 +387,35 @@ export default function Home() {
     }));
   };
 
+  // ----- Calculate Average Sentiment Values -----
+  const calculateAverages = () => {
+    const total = segments.length;
+    const sum = segments.reduce(
+      (acc, seg) => {
+        acc.valence += seg.valence.value;
+        acc.arousal += seg.arousal.value;
+        acc.dominance += seg.dominance.value;
+        return acc;
+      },
+      { valence: 0, arousal: 0, dominance: 0 }
+    );
+
+    return {
+      valence: parseFloat((sum.valence / total).toFixed(2)),
+      arousal: parseFloat((sum.arousal / total).toFixed(2)),
+      dominance: parseFloat((sum.dominance / total).toFixed(2)),
+    };
+  };
+
   // ----- Render Linear Timeline with Recharts -----
   const renderLinearTimeline = () => {
     if (stage !== "finished") return null;
 
     const data = prepareRechartsData();
+    const averages = calculateAverages();
 
     return (
-      <div className="w-full max-w-4xl mt-8 bg-white rounded-lg shadow p-6">
+      <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 transition-all duration-500 ease-in-out hover:scale-105">
         <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart
@@ -300,6 +432,21 @@ export default function Home() {
             <Line type="monotone" dataKey="Dominance" stroke="#ffc658" />
           </LineChart>
         </ResponsiveContainer>
+        {/* Display Averages */}
+        <div className="mt-4 flex space-x-6">
+          <div className="flex items-center space-x-2">
+            <span className="w-3 h-3 bg-[#8884d8] rounded-full"></span>
+            <span>Average Valence: {averages.valence}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="w-3 h-3 bg-[#82ca9d] rounded-full"></span>
+            <span>Average Arousal: {averages.arousal}</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="w-3 h-3 bg-[#ffc658] rounded-full"></span>
+            <span>Average Dominance: {averages.dominance}</span>
+          </div>
+        </div>
       </div>
     );
   };
@@ -309,17 +456,21 @@ export default function Home() {
     if (stage !== "finished") return null;
 
     return (
-      <div className="flex flex-col md:flex-row w-full max-w-5xl mt-8 gap-8">
+      <div className="flex flex-col md:flex-row w-full max-w-5xl gap-8 transition-all duration-500 ease-in-out">
         {/* Top Genres */}
-        <div className="md:w-1/3 bg-white rounded-lg shadow p-6">
+        <div className="md:w-1/3 bg-white rounded-lg shadow p-6 transition-transform transform duration-500 ease-in-out hover:scale-105">
           <h2 className="text-xl font-semibold mb-4">Top Predicted Genres</h2>
           <ul className="space-y-2">
-            {genres.map((genre, idx) => (
-              <li key={idx} className="flex justify-between">
-                <span>{genre.name}</span>
-                <span>{(genre.score * 100).toFixed(1)}%</span>
-              </li>
-            ))}
+            {genres.map((genre, idx) => {
+              const Icon = genreIconMap[genre.name] || FaMusic; // Default to FaMusic if no icon found
+              return (
+                <li key={idx} className="flex items-center space-x-3 p-2 bg-gray-100 rounded">
+                  <Icon className="text-xl text-indigo-600" />
+                  <span className="flex-1 font-medium">{genre.name}</span>
+                  <span className="text-sm text-gray-700">{(genre.score * 100).toFixed(1)}%</span>
+                </li>
+              );
+            })}
           </ul>
         </div>
 
@@ -332,37 +483,37 @@ export default function Home() {
   // ----- Render Speaker with Waves -----
   const renderSpeakerWithWaves = () => {
     return (
-      <div className="relative w-[400px] h-[400px] flex items-center justify-center">
+      <div className="relative w-[400px] h-[400px] flex items-center justify-center transition-all duration-500 ease-in-out">
         {/* Circular Area Chart */}
         {renderCircularAreaChart()}
 
         {/* Speaker Image */}
         <div className="z-10">
-          <Image src="/speaker.svg" alt="Speaker" width={120} height={120} />
+          <Image
+            src="/speaker.svg"
+            alt="Speaker"
+            width={120}
+            height={120}
+            className={`transition-transform duration-500 ${
+              stage === "processing" ? "animate-rotate" : ""
+            }`}
+          />
         </div>
-
-        {/* Processing Info */}
-        {(stage === "processing" || stage === "finished") && (
-          <div className="absolute bottom-[-2.5rem] text-sm text-gray-600">
-            {stage === "processing"
-              ? `Processing segment ${segments.filter(seg => seg.locked).length}/${totalSegments}...`
-              : "Processing Complete!"}
-          </div>
-        )}
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50">
-      <h1 className="text-3xl font-bold mb-8">Music Sentiment & Genre Analyzer</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 ease-in-out">
+      <h1 className="text-3xl font-bold">Music Sentiment & Genre Analyzer</h1>
 
       {/* IDLE: Upload Button */}
       {stage === "idle" && (
-        <div className="flex flex-col items-center space-y-4">
+        <div className="flex flex-col items-center space-y-4 transition-all duration-500 ease-in-out">
           <label
             htmlFor="upload-audio"
             className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2"
+            aria-label="Upload Audio File"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -389,12 +540,18 @@ export default function Home() {
             height={120}
             className="opacity-50"
           />
+          {/* Error Message */}
+          {error && (
+            <div className="mt-4 text-red-500">
+              {error}
+            </div>
+          )}
         </div>
       )}
 
       {/* UPLOADING */}
       {stage === "uploading" && (
-        <div className="flex flex-col items-center space-y-4">
+        <div className="flex flex-col items-center space-y-4 transition-all duration-500 ease-in-out">
           <p className="text-lg text-gray-700 animate-pulse">Uploading...</p>
           <Image
             src="/speaker.svg"
@@ -422,3 +579,22 @@ export default function Home() {
     </div>
   );
 }
+
+/**
+ * CSS Animation for rotating the speaker
+ * Add this to your global CSS (e.g., globals.css)
+ */
+/* 
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-rotate {
+  animation: rotate 10s linear infinite;
+}
+*/
