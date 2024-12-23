@@ -2,20 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* You can add any global custom styles below */
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+/* Example: custom animation for “electricity” traveling through the cable */
+.cable-electricity {
+  animation: cableFlow 1s linear infinite;
+  stroke-dasharray: 4;
+  stroke-dashoffset: 0;
+}
+
+@keyframes cableFlow {
+  to {
+    stroke-dashoffset: 16;
+  }
 }
