@@ -16,27 +16,22 @@ import {
 /** Represents a single 5s segment's sentiment data */
 interface SegmentSentiment {
   timeSec: number;
-  valence: number;
-  arousal: number;
-  dominance: number;
+  valence: {
+    value: number;
+    target: number;
+    speed: number;
+  };
+  arousal: {
+    value: number;
+    target: number;
+    speed: number;
+  };
+  dominance: {
+    value: number;
+    target: number;
+    speed: number;
+  };
   locked: boolean;
-}
-
-/** Wave parameters for each sentiment */
-interface WaveParams {
-  baseRadius: number;     // Base radius in px
-  amplitude: number;      // Wave amplitude
-  frequency: number;      // Wave frequency
-  phase: number;          // Current phase
-  velocity: number;       // Current velocity
-  targetVelocity: number; // Target velocity
-}
-
-/** Waves state for valence, arousal, dominance */
-interface WavesState {
-  valence: WaveParams;
-  arousal: WaveParams;
-  dominance: WaveParams;
 }
 
 /** Genre prediction */
@@ -54,95 +49,91 @@ export default function Home() {
   const [segments, setSegments] = useState<SegmentSentiment[]>(() =>
     Array.from({ length: totalSegments }, (_, i) => ({
       timeSec: i * 5,
-      valence: Math.random(),
-      arousal: Math.random(),
-      dominance: Math.random(),
+      valence: {
+        value: Math.random(),
+        target: Math.random(),
+        speed: Math.random() * 0.005 + 0.002, // Random speed between 0.002 and 0.007
+      },
+      arousal: {
+        value: Math.random(),
+        target: Math.random(),
+        speed: Math.random() * 0.005 + 0.002,
+      },
+      dominance: {
+        value: Math.random(),
+        target: Math.random(),
+        speed: Math.random() * 0.005 + 0.002,
+      },
       locked: false,
     }))
   );
 
-  // ----- WAVES STATE -----
-  const [waves, setWaves] = useState<WavesState>({
-    valence: {
-      baseRadius: 70,
-      amplitude: 20,
-      frequency: 3,
-      phase: 0,
-      velocity: 0.5,
-      targetVelocity: 0.5,
-    },
-    arousal: {
-      baseRadius: 90,
-      amplitude: 30,
-      frequency: 2,
-      phase: 0,
-      velocity: 0.3,
-      targetVelocity: 0.3,
-    },
-    dominance: {
-      baseRadius: 50,
-      amplitude: 15,
-      frequency: 4,
-      phase: 0,
-      velocity: 0.7,
-      targetVelocity: 0.7,
-    },
-  });
-
   // ----- GENRE DATA -----
   const [genres, setGenres] = useState<GenrePrediction[]>([]);
 
-  // ----- Animation Refs -----
+  // ----- Animation Ref -----
   const rafId = useRef<number | null>(null);
-  const lastTime = useRef<number>(0);
 
-  /**
-   * Animate waves by updating phase based on velocity
-   */
-  const animateWaves = (time: number) => {
-    const dt = (time - lastTime.current) / 1000; // Delta time in seconds
-    lastTime.current = time;
-
-    setWaves((prev) => {
-      const next = { ...prev };
-
-      (Object.keys(next) as (keyof WavesState)[]).forEach((key) => {
-        const wave = next[key];
-        // Smoothly approach target velocity
-        const smoothing = 0.2;
-        wave.velocity += (wave.targetVelocity - wave.velocity) * smoothing * dt;
-        // Update phase
-        wave.phase += wave.velocity * dt * 2 * Math.PI;
-      });
-
-      return next;
-    });
-
-    rafId.current = requestAnimationFrame(animateWaves);
-  };
-
-  // ----- Start Animation and Velocity Changes -----
+  // ----- Animation Loop -----
   useEffect(() => {
     if (stage !== "processing") return;
 
-    lastTime.current = performance.now();
-    rafId.current = requestAnimationFrame(animateWaves);
+    const animate = () => {
+      setSegments((prevSegments) =>
+        prevSegments.map((seg) => {
+          if (seg.locked) return seg;
 
-    // Randomize target velocity every 3 seconds
-    const velocityInterval = setInterval(() => {
-      setWaves((prev) => {
-        const next = { ...prev };
-        (Object.keys(next) as (keyof WavesState)[]).forEach((key) => {
-          const wave = next[key];
-          wave.targetVelocity = 0.1 + Math.random() * 0.7;
-        });
-        return next;
-      });
-    }, 3000);
+          // Function to update a sentiment
+          const updateSentiment = (sentiment: "valence" | "arousal" | "dominance") => {
+            const current = seg[sentiment].value;
+            const target = seg[sentiment].target;
+            const speed = seg[sentiment].speed;
+
+            let newValue = current;
+
+            if (current < target) {
+              newValue += speed;
+              if (newValue >= target) {
+                newValue = target;
+              }
+            } else if (current > target) {
+              newValue -= speed;
+              if (newValue <= target) {
+                newValue = target;
+              }
+            }
+
+            // If target reached, assign a new target and speed
+            if (newValue === target) {
+              return {
+                value: newValue,
+                target: Math.random(),
+                speed: Math.random() * 0.005 + 0.002,
+              };
+            }
+
+            return {
+              ...seg[sentiment],
+              value: newValue,
+            };
+          };
+
+          return {
+            ...seg,
+            valence: updateSentiment("valence"),
+            arousal: updateSentiment("arousal"),
+            dominance: updateSentiment("dominance"),
+          };
+        })
+      );
+
+      rafId.current = requestAnimationFrame(animate);
+    };
+
+    rafId.current = requestAnimationFrame(animate);
 
     return () => {
       if (rafId.current !== null) cancelAnimationFrame(rafId.current);
-      clearInterval(velocityInterval);
     };
   }, [stage]);
 
@@ -164,7 +155,16 @@ export default function Home() {
     const intervalId = setInterval(() => {
       setSegments((prev) =>
         prev.map((seg, i) =>
-          i === currentIdx ? { ...seg, locked: true } : seg
+          i === currentIdx
+            ? {
+                ...seg,
+                locked: true,
+                // Upon locking, set target to current value to stop changes
+                valence: { ...seg.valence, target: seg.valence.value },
+                arousal: { ...seg.arousal, target: seg.arousal.value },
+                dominance: { ...seg.dominance, target: seg.dominance.value },
+              }
+            : seg
         )
       );
       currentIdx++;
@@ -220,7 +220,7 @@ export default function Home() {
 
   // ----- Render Circular Area Chart -----
   const renderCircularAreaChart = () => {
-    // Generate points for each sentiment
+    // Define sentiments and their colors
     const sentiments: Array<"valence" | "arousal" | "dominance"> = ["valence", "arousal", "dominance"];
     const colors: Record<string, string> = {
       valence: "rgba(136, 132, 216, 0.4)", // Purple
@@ -243,10 +243,8 @@ export default function Home() {
         {sentiments.map((sentiment) => {
           const points = segments.map((seg, i) => {
             const angle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2; // Start from top
-            const sentimentValue = seg[sentiment];
-            const wave = waves[sentiment];
-            const value = seg.locked ? sentimentValue : Math.abs(Math.sin(wave.frequency * angle + wave.phase)) * 0.5 + 0.5;
-            const r = wave.baseRadius + wave.amplitude * value;
+            const sentimentValue = seg[sentiment].value;
+            const r = 80 + sentimentValue * 50; // Adjust radius based on value
             const x = r * Math.cos(angle);
             const y = r * Math.sin(angle);
             return { x, y };
@@ -272,9 +270,9 @@ export default function Home() {
   const prepareRechartsData = () => {
     return segments.map((seg) => ({
       time: `${seg.timeSec}s`,
-      Valence: parseFloat(seg.valence.toFixed(2)),
-      Arousal: parseFloat(seg.arousal.toFixed(2)),
-      Dominance: parseFloat(seg.dominance.toFixed(2)),
+      Valence: parseFloat(seg.valence.value.toFixed(2)),
+      Arousal: parseFloat(seg.arousal.value.toFixed(2)),
+      Dominance: parseFloat(seg.dominance.value.toFixed(2)),
     }));
   };
 
