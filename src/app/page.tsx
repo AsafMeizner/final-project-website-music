@@ -1,3 +1,5 @@
+// src/app/page.tsx
+
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -13,20 +15,9 @@ import {
   CartesianGrid,
 } from "recharts";
 import { IconType } from "react-icons";
-import {
-  FaMusic,
-  FaHeadphones,
-  FaGuitar,
-  FaDrum,
-  FaMicrophone,
-  FaCompactDisc,
-  FaRecordVinyl,
-} from "react-icons/fa";
-import {
-  GiPianoKeys,
-  GiSaxophone,
-  GiViolin,
-} from "react-icons/gi";
+import { FaMusic } from "react-icons/fa";
+import { MdMusicNote } from "react-icons/md"; // Material Design Music Note
+import { v4 as uuidv4 } from "uuid"; // For unique keys
 
 /** Represents a single 5s segment's sentiment data */
 interface SegmentSentiment {
@@ -61,24 +52,112 @@ interface ShuffledSentiment {
   opacity: number;
 }
 
+/** Represents an individual music note */
+interface MusicNoteData {
+  id: string;
+  angle: number; // Degrees from 0 to 360
+  color: string;
+  type: IconType;
+}
+
 /** Mapping of genre names to corresponding icons */
 const genreIconMap: Record<string, IconType> = {
   Pop: FaMusic,
-  Rock: FaGuitar,
-  HipHop: FaMicrophone,
-  EDM: FaHeadphones,
-  Classical: GiViolin,
-  Jazz: GiSaxophone,
-  Metal: FaDrum,
-  Country: FaGuitar,
-  Blues: FaGuitar,
-  Reggae: FaHeadphones,
+  Rock: FaMusic,
+  HipHop: FaMusic,
+  EDM: FaMusic,
+  Classical: FaMusic,
+  Jazz: FaMusic,
+  Metal: FaMusic,
+  Country: FaMusic,
+  Blues: FaMusic,
+  Reggae: FaMusic,
+  Punk: FaMusic,
+  RnB: FaMusic,
+  Folk: FaMusic,
   // Add more genres and their corresponding icons as needed
+};
+
+/** Array of different music note icons */
+const noteTypes: IconType[] = [FaMusic, MdMusicNote];
+
+/** Color classes based on sentiments */
+const sentimentColorMap: Record<"valence" | "arousal" | "dominance", string[]> = {
+  valence: ["text-purple-500", "text-pink-500", "text-indigo-500"],
+  arousal: ["text-green-500", "text-teal-500", "text-lime-500"],
+  dominance: ["text-yellow-500", "text-orange-500", "text-amber-500"],
+};
+
+/** MusicNote Component */
+interface MusicNoteProps {
+  id: string;
+  angle: number;
+  color: string;
+  type: IconType;
+  onAnimationEnd: (id: string) => void;
+}
+
+const MusicNote: React.FC<MusicNoteProps> = ({
+  id,
+  angle,
+  color,
+  type: Icon,
+  onAnimationEnd,
+}) => {
+  const [style, setStyle] = useState<React.CSSProperties>({
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    opacity: 1,
+    transition: "transform 3s ease-out, opacity 3s ease-out",
+    pointerEvents: "none", // Prevent interactions
+    fontSize: "24px", // Adjust size as needed
+  });
+
+  useEffect(() => {
+    const distance = 150; // Distance in pixels
+    const radians = (angle * Math.PI) / 180;
+    const x = distance * Math.cos(radians);
+    const y = distance * Math.sin(radians);
+
+    // Trigger the animation after mount
+    const timer = setTimeout(() => {
+      setStyle({
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+        opacity: 0,
+        transition: "transform 3s ease-out, opacity 3s ease-out",
+        pointerEvents: "none",
+        fontSize: "24px",
+      });
+    }, 50); // Slight delay to ensure transition
+
+    return () => clearTimeout(timer);
+  }, [angle]);
+
+  return (
+    <Icon
+      style={style}
+      className={color}
+      onTransitionEnd={() => onAnimationEnd(id)}
+      aria-hidden="true" // Decorative element
+    />
+  );
+};
+
+/** Shuffle array helper function */
+const shuffleArray = <T,>(array: T[]): T[] => {
+  return array.sort(() => Math.random() - 0.5);
 };
 
 export default function Home() {
   // ----- STAGE MANAGEMENT -----
-  const [stage, setStage] = useState<"idle" | "uploading" | "processing" | "finished">("idle");
+  const [stage, setStage] = useState<"idle" | "uploading" | "processing" | "finished">(
+    "idle"
+  );
 
   // ----- SEGMENT SENTIMENT DATA -----
   const totalSegments = 12; // 60s / 5s
@@ -108,26 +187,21 @@ export default function Home() {
   const [genres, setGenres] = useState<GenrePrediction[]>([]);
 
   // ----- Shuffled Sentiments State -----
-  const sentiments: Array<"valence" | "arousal" | "dominance"> = ["valence", "arousal", "dominance"];
-  const [shuffledSentiments, setShuffledSentiments] = useState<ShuffledSentiment[]>(() => shuffleSentiments());
-
-  /** 
-   * Shuffle the sentiments array and assign unique opacities
-   * Ensures no two sentiments have the same z-index or opacity
-   */
-  function shuffleSentiments(): ShuffledSentiment[] {
-    // Shuffle the sentiments array
-    const shuffled = [...sentiments].sort(() => Math.random() - 0.5);
-
-    // Assign unique opacities (e.g., 0.6, 0.5, 0.4)
-    const opacities = [0.6, 0.5, 0.4].sort(() => Math.random() - 0.5);
-
-    // Map shuffled sentiments to their opacities
-    return shuffled.map((sentiment, index) => ({
-      sentiment,
-      opacity: opacities[index],
-    }));
-  }
+  const sentiments: Array<"valence" | "arousal" | "dominance"> = [
+    "valence",
+    "arousal",
+    "dominance",
+  ];
+  const [shuffledSentiments, setShuffledSentiments] = useState<ShuffledSentiment[]>(
+    () => {
+      const shuffled = shuffleArray(sentiments);
+      const opacities = shuffleArray([0.6, 0.5, 0.4]);
+      return shuffled.map((sentiment, index) => ({
+        sentiment,
+        opacity: opacities[index],
+      }));
+    }
+  );
 
   // ----- Update Shuffled Sentiments at Intervals -----
   useEffect(() => {
@@ -135,16 +209,22 @@ export default function Home() {
 
     // Shuffle sentiments every 2 seconds
     const shuffleInterval = setInterval(() => {
-      setShuffledSentiments(shuffleSentiments());
+      const shuffled = shuffleArray(sentiments);
+      const opacities = shuffleArray([0.6, 0.5, 0.4]);
+      setShuffledSentiments(
+        shuffled.map((sentiment, index) => ({
+          sentiment,
+          opacity: opacities[index],
+        }))
+      );
     }, 2000); // Change interval as desired
 
     return () => clearInterval(shuffleInterval);
   }, [stage]);
 
-  // ----- Animation Ref -----
+  // ----- Animation Loop for Sentiment Values -----
   const rafId = useRef<number | null>(null);
 
-  // ----- Animation Loop -----
   useEffect(() => {
     if (stage !== "processing") return;
 
@@ -154,7 +234,9 @@ export default function Home() {
           if (seg.locked) return seg;
 
           // Function to update a sentiment
-          const updateSentiment = (sentiment: "valence" | "arousal" | "dominance") => {
+          const updateSentiment = (
+            sentiment: "valence" | "arousal" | "dominance"
+          ) => {
             const current = seg[sentiment].value;
             const target = seg[sentiment].target;
             const speed = seg[sentiment].speed;
@@ -207,20 +289,55 @@ export default function Home() {
     };
   }, [stage]);
 
+  // ----- Music Notes State -----
+  const [musicNotes, setMusicNotes] = useState<MusicNoteData[]>([]);
+
+  // ----- Effect to Generate Music Notes Continuously -----
+  useEffect(() => {
+    if (stage !== "processing") return;
+
+    const noteInterval = setInterval(() => {
+      // Randomly select a type
+      const type = shuffleArray(noteTypes)[0];
+
+      // Randomly select a color
+      const color = shuffleArray(["text-red-500", "text-blue-500", "text-green-500"])[0];
+
+      // Randomly select an angle between 0 and 360 degrees
+      const angle = Math.random() * 360;
+
+      const newNote: MusicNoteData = {
+        id: uuidv4(),
+        angle,
+        color,
+        type,
+      };
+
+      setMusicNotes((prev) => [...prev, newNote]);
+
+      // Remove the note after 3s (animation duration)
+      setTimeout(() => {
+        setMusicNotes((prev) => prev.filter((note) => note.id !== newNote.id));
+      }, 3000);
+    }, 500); // Generate a new note every 500ms
+
+    return () => clearInterval(noteInterval);
+  }, [stage]);
+
   // ----- Handle File Upload -----
   const [error, setError] = useState<string | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
+
     const file = e.target.files[0];
-    
+
     // Simple file type validation
     if (!file.type.startsWith("audio/")) {
       setError("Please upload a valid audio file.");
       return;
     }
-    
+
     setError(null);
     setStage("uploading");
 
@@ -255,7 +372,7 @@ export default function Home() {
         clearInterval(intervalId);
         // Simulate genre prediction
         setTimeout(() => {
-          const randomGenres = [
+          const randomGenres = shuffleArray([
             { name: "Pop", score: Math.random() },
             { name: "Rock", score: Math.random() },
             { name: "EDM", score: Math.random() },
@@ -267,7 +384,7 @@ export default function Home() {
             { name: "Blues", score: Math.random() },
             { name: "Reggae", score: Math.random() },
             // Add more genres as needed
-          ]
+          ])
             .sort((a, b) => b.score - a.score)
             .slice(0, 3);
           setGenres(randomGenres);
@@ -309,12 +426,7 @@ export default function Home() {
   // ----- Render Circular Area Chart -----
   const renderCircularAreaChart = () => {
     return (
-      <svg
-        width={400}
-        height={400}
-        viewBox="-200 -200 400 400"
-        className="absolute"
-      >
+      <svg width={400} height={400} viewBox="-200 -200 400 400" className="absolute">
         {shuffledSentiments.map(({ sentiment, opacity }, index) => {
           const points = segments.map((seg, i) => {
             const angle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2; // Start from top
@@ -416,7 +528,7 @@ export default function Home() {
 
     return (
       <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 transition-all duration-500 ease-in-out hover:scale-105">
-        <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
+        <h2 className="text-xl font-semibold">Sentiment Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart
             data={data}
@@ -427,7 +539,12 @@ export default function Home() {
             <YAxis domain={[0, 1]} />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="Valence" stroke="#8884d8" activeDot={{ r: 8 }} />
+            <Line
+              type="monotone"
+              dataKey="Valence"
+              stroke="#8884d8"
+              activeDot={{ r: 8 }}
+            />
             <Line type="monotone" dataKey="Arousal" stroke="#82ca9d" />
             <Line type="monotone" dataKey="Dominance" stroke="#ffc658" />
           </LineChart>
@@ -464,10 +581,15 @@ export default function Home() {
             {genres.map((genre, idx) => {
               const Icon = genreIconMap[genre.name] || FaMusic; // Default to FaMusic if no icon found
               return (
-                <li key={idx} className="flex items-center space-x-3 p-2 bg-gray-100 rounded">
+                <li
+                  key={idx}
+                  className="flex items-center space-x-3 p-2 bg-gray-100 rounded"
+                >
                   <Icon className="text-xl text-indigo-600" />
                   <span className="flex-1 font-medium">{genre.name}</span>
-                  <span className="text-sm text-gray-700">{(genre.score * 100).toFixed(1)}%</span>
+                  <span className="text-sm text-gray-700">
+                    {(genre.score * 100).toFixed(1)}%
+                  </span>
                 </li>
               );
             })}
@@ -480,10 +602,10 @@ export default function Home() {
     );
   };
 
-  // ----- Render Speaker with Waves -----
+  // ----- Render Speaker with Waves and Animated Music Notes -----
   const renderSpeakerWithWaves = () => {
     return (
-      <div className="relative w-[400px] h-[400px] flex items-center justify-center transition-all duration-500 ease-in-out">
+      <div className="relative w-[400px] h-[400px] flex items-center justify-center transition-all duration-500 ease-in-out hover:scale-105">
         {/* Circular Area Chart */}
         {renderCircularAreaChart()}
 
@@ -495,10 +617,24 @@ export default function Home() {
             width={120}
             height={120}
             className={`transition-transform duration-500 ${
-              stage === "processing" ? "animate-rotate" : ""
+              stage === "processing" ? "animate-rotate-slow" : ""
             }`}
           />
         </div>
+
+        {/* Animated Music Notes */}
+        {musicNotes.map((note) => (
+          <MusicNote
+            key={note.id}
+            id={note.id}
+            angle={note.angle}
+            color={note.color}
+            type={note.type}
+            onAnimationEnd={(id) =>
+              setMusicNotes((prev) => prev.filter((n) => n.id !== id))
+            }
+          />
+        ))}
       </div>
     );
   };
@@ -512,7 +648,7 @@ export default function Home() {
         <div className="flex flex-col items-center space-y-4 transition-all duration-500 ease-in-out">
           <label
             htmlFor="upload-audio"
-            className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2"
+            className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             aria-label="Upload Audio File"
           >
             <svg
@@ -522,7 +658,12 @@ export default function Home() {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             <span>Upload Audio</span>
           </label>
@@ -541,11 +682,7 @@ export default function Home() {
             className="opacity-50"
           />
           {/* Error Message */}
-          {error && (
-            <div className="mt-4 text-red-500">
-              {error}
-            </div>
-          )}
+          {error && <div className="mt-4 text-red-500">{error}</div>}
         </div>
       )}
 
@@ -576,25 +713,21 @@ export default function Home() {
           {renderLinearTimelineAndGenres()}
         </div>
       )}
+
+      {/* Tailwind CSS Animation for Speaker Rotation */}
+      <style jsx>{`
+        @keyframes rotate-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .animate-rotate-slow {
+          animation: rotate-slow 20s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
-
-/**
- * CSS Animation for rotating the speaker
- * Add this to your global CSS (e.g., globals.css)
- */
-/* 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-rotate {
-  animation: rotate 10s linear infinite;
-}
-*/
