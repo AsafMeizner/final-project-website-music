@@ -15,8 +15,19 @@ import {
   CartesianGrid,
 } from "recharts";
 import { IconType } from "react-icons";
-import { FaMusic } from "react-icons/fa";
-import { MdMusicNote } from "react-icons/md"; // Material Design Music Note
+import {
+  FaMusic,
+  FaHeadphones,
+  FaGuitar,
+  FaDrum,
+  FaMicrophone,
+} from "react-icons/fa";
+import {
+  GiViolin,
+  GiSaxophone,
+} from "react-icons/gi";
+import { MdMusicNote, MdMusicOff } from "react-icons/md"; // Material Design Music Note
+import { IoIosMusicalNote } from "react-icons/io"; // Ionicons
 import { v4 as uuidv4 } from "uuid"; // For unique keys
 
 /** Represents a single 5s segment's sentiment data */
@@ -63,18 +74,18 @@ interface MusicNoteData {
 /** Mapping of genre names to corresponding icons */
 const genreIconMap: Record<string, IconType> = {
   Pop: FaMusic,
-  Rock: FaMusic,
-  HipHop: FaMusic,
-  EDM: FaMusic,
-  Classical: FaMusic,
-  Jazz: FaMusic,
-  Metal: FaMusic,
-  Country: FaMusic,
-  Blues: FaMusic,
-  Reggae: FaMusic,
-  Punk: FaMusic,
-  RnB: FaMusic,
-  Folk: FaMusic,
+  Rock: FaGuitar,
+  HipHop: FaMicrophone,
+  EDM: FaHeadphones,
+  Classical: GiViolin,
+  Jazz: GiSaxophone,
+  Metal: FaDrum,
+  Country: FaGuitar,
+  Blues: FaGuitar,
+  Reggae: FaHeadphones,
+  Punk: FaDrum,
+  RnB: FaMicrophone,
+  Folk: FaGuitar,
   // Add more genres and their corresponding icons as needed
 };
 
@@ -383,6 +394,9 @@ export default function Home() {
             { name: "Country", score: Math.random() },
             { name: "Blues", score: Math.random() },
             { name: "Reggae", score: Math.random() },
+            { name: "Punk", score: Math.random() },
+            { name: "RnB", score: Math.random() },
+            { name: "Folk", score: Math.random() },
             // Add more genres as needed
           ])
             .sort((a, b) => b.score - a.score)
@@ -528,7 +542,7 @@ export default function Home() {
 
     return (
       <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 transition-all duration-500 ease-in-out hover:scale-105">
-        <h2 className="text-xl font-semibold">Sentiment Over Time</h2>
+        <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart
             data={data}
@@ -602,12 +616,15 @@ export default function Home() {
     );
   };
 
-  // ----- Render Speaker with Waves and Animated Music Notes -----
+  // ----- Render Speaker with Waves, Pulse, and Animated Music Notes -----
   const renderSpeakerWithWaves = () => {
     return (
       <div className="relative w-[400px] h-[400px] flex items-center justify-center transition-all duration-500 ease-in-out hover:scale-105">
         {/* Circular Area Chart */}
         {renderCircularAreaChart()}
+
+        {/* Pulse Animation */}
+        <div className="absolute rounded-full bg-indigo-300 opacity-75 w-32 h-32 animate-ping-slow"></div>
 
         {/* Speaker Image */}
         <div className="z-10">
@@ -658,12 +675,7 @@ export default function Home() {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             <span>Upload Audio</span>
           </label>
@@ -714,7 +726,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Tailwind CSS Animation for Speaker Rotation */}
+      {/* Tailwind CSS Animations */}
       <style jsx>{`
         @keyframes rotate-slow {
           from {
@@ -726,6 +738,20 @@ export default function Home() {
         }
         .animate-rotate-slow {
           animation: rotate-slow 20s linear infinite;
+        }
+
+        @keyframes ping-slow {
+          0% {
+            transform: scale(1);
+            opacity: 0.75;
+          }
+          100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+        .animate-ping-slow {
+          animation: ping-slow 4s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
       `}</style>
     </div>
