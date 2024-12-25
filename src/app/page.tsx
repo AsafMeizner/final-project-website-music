@@ -623,9 +623,6 @@ export default function Home() {
         {/* Circular Area Chart */}
         {renderCircularAreaChart()}
 
-        {/* Pulse Animation */}
-        <div className="absolute rounded-full bg-indigo-300 opacity-75 w-32 h-32 animate-ping-slow"></div>
-
         {/* Speaker Image */}
         <div className="z-10">
           <Image
