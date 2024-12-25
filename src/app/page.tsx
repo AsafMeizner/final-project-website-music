@@ -631,7 +631,7 @@ export default function Home() {
             width={120}
             height={120}
             className={`transition-transform duration-500 ${
-              stage === "processing" ? "animate-rotate-slow" : ""
+              stage === "processing" ? "animate-pulse-scale animate-rotate-slow" : ""
             }`}
           />
         </div>
