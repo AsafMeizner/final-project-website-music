@@ -662,7 +662,7 @@ export default function Home() {
         <div className="flex flex-col items-center space-y-4 transition-all duration-500 ease-in-out">
           <label
             htmlFor="upload-audio"
-            className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="cursor-pointer bg-indigo-600 text-white px-6 py-3 mt-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             aria-label="Upload Audio File"
           >
             <svg
