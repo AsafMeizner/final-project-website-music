@@ -4,7 +4,7 @@ import "./globals.css"; // import Tailwind + global styles
 
 export const metadata = {
   title: "Music Sentiment & Genre Demo",
-  description: "A Next.js 13 app demoing an interactive audio sentiment analysis UI",
+  description: "A machine learning demo for music sentiment and genre classification.",
 };
 
 export default function RootLayout({
