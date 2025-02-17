@@ -24,9 +24,9 @@ import {
   FaMicrophoneSlash,
 } from "react-icons/fa";
 import { GiViolin, GiSaxophone } from "react-icons/gi";
-import { MdMusicNote, MdMusicOff } from "react-icons/md"; // Material Design Music Icons
-import { IoIosMusicalNote } from "react-icons/io"; // Ionicons
-import { v4 as uuidv4 } from "uuid"; // For unique keys
+import { MdMusicNote, MdMusicOff } from "react-icons/md";
+import { v4 as uuidv4 } from "uuid";
+import { useReactMediaRecorder } from "react-media-recorder";
 
 /** Represents a single 5s segment's sentiment data */
 interface SegmentSentiment {
@@ -84,7 +84,7 @@ const genreIconMap: Record<string, IconType> = {
   Punk: FaDrum,
   RnB: FaMicrophone,
   Folk: FaGuitar,
-  // Add more genres and their corresponding icons as needed
+  // Add more genres as needed
 };
 
 /** Array of different music note icons */
@@ -125,7 +125,7 @@ const MusicNote: React.FC<MusicNoteProps> = ({
   });
 
   useEffect(() => {
-    const distance = 150; // Distance in pixels
+    const distance = 150;
     const radians = (angle * Math.PI) / 180;
     const x = distance * Math.cos(radians);
     const y = distance * Math.sin(radians);
@@ -157,9 +157,7 @@ const MusicNote: React.FC<MusicNoteProps> = ({
 };
 
 /** Shuffle array helper function */
-const shuffleArray = <T,>(array: T[]): T[] => {
-  return array.sort(() => Math.random() - 0.5);
-};
+const shuffleArray = <T,>(array: T[]): T[] => array.sort(() => Math.random() - 0.5);
 
 export default function Home() {
   // ----- STAGE MANAGEMENT -----
@@ -168,15 +166,44 @@ export default function Home() {
   );
 
   // ----- AUDIO INPUT STATE -----
-  const [recording, setRecording] = useState(false);
-  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  // For file upload:
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
-  const [isMicMuted, setIsMicMuted] = useState(false);
+  // For recorded audio via react-media-recorder:
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  // For controlling audio playback (music) while processing:
   const [isAudioMuted, setIsAudioMuted] = useState(false);
 
-  // Refs for recording
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  // ----- React Media Recorder Hook (for audio) -----
+  const {
+    status: recordingStatus,
+    startRecording: startRecord,
+    stopRecording: stopRecord,
+    mediaBlobUrl,
+    muteAudio,
+    unmuteAudio,
+    isMuted,
+  } = useReactMediaRecorder({ audio: true });
+
+  // Show mic mute toggle while recording using the hook’s mute/unmute
+  const toggleMicMute = () => {
+    if (isMuted) {
+      unmuteAudio();
+    } else {
+      muteAudio();
+    }
+  };
+
+  // When a recorded blob URL becomes available, trigger processing.
+  useEffect(() => {
+    if (mediaBlobUrl && stage === "idle") {
+      setRecordedAudioUrl(mediaBlobUrl);
+      setStage("uploading");
+      setTimeout(() => {
+        setStage("processing");
+        startProcessing();
+      }, 2000);
+    }
+  }, [mediaBlobUrl, stage]);
 
   // ----- SEGMENT SENTIMENT DATA -----
   const totalSegments = 12;
@@ -352,67 +379,6 @@ export default function Home() {
     }, 2000);
   };
 
-  // ----- Recording Functions -----
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-
-      // Check for a supported MIME type.
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const options = { mimeType };
-
-      const mediaRecorder = new MediaRecorder(stream, options);
-      let chunks: BlobPart[] = [];
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunks.push(e.data);
-        }
-      };
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: options.mimeType });
-        const url = URL.createObjectURL(blob);
-        setRecordedAudioUrl(url);
-        chunks = [];
-        setStage("uploading");
-        setTimeout(() => {
-          setStage("processing");
-          startProcessing();
-        }, 2000);
-      };
-      mediaRecorder.start();
-      mediaRecorderRef.current = mediaRecorder;
-      setRecording(true);
-    } catch (error) {
-      console.error("Error accessing microphone:", error);
-      setError("Could not access microphone.");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop();
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
-      setRecording(false);
-    }
-  };
-
-  const toggleMicMute = () => {
-    if (mediaStreamRef.current) {
-      const newMuted = !isMicMuted;
-      mediaStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !newMuted;
-      });
-      setIsMicMuted(newMuted);
-    }
-  };
-
-  const toggleAudioMute = () => {
-    setIsAudioMuted((prev) => !prev);
-  };
-
   // ----- Simulate Processing by Locking Segments -----
   const startProcessing = () => {
     let currentIdx = 0;
@@ -580,10 +546,7 @@ export default function Home() {
       <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 transition-all duration-500 ease-in-out hover:scale-105">
         <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart
-            data={data}
-            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-          >
+          <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="time" />
             <YAxis domain={[0, 1]} />
@@ -674,30 +637,33 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 ease-in-out relative">
       <h1 className="text-3xl font-bold">Music Sentiment & Genre Analyzer</h1>
 
-      {/* Mute Toggle Buttons */}
-      {(stage === "processing" || stage === "finished") && (recordedAudioUrl || uploadedAudioUrl) && (
-        <div className="fixed top-4 left-4 z-50 flex space-x-4">
-          <button
-            onClick={toggleAudioMute}
-            className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
-            aria-label="Toggle Audio Playback Mute"
-          >
-            {isAudioMuted ? (
-              <MdMusicOff className="h-6 w-6" />
-            ) : (
-              <MdMusicNote className="h-6 w-6" />
-            )}
-          </button>
-        </div>
-      )}
-      {recording && (
-        <div className="fixed top-4 left-4 z-50">
+      {/* Mute Toggle Buttons for playback (music) */}
+      {(stage === "processing" || stage === "finished") &&
+        (recordedAudioUrl || uploadedAudioUrl) && (
+          <div className="fixed top-4 left-4 z-50 flex space-x-4">
+            <button
+              onClick={() => setIsAudioMuted((prev) => !prev)}
+              className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
+              aria-label="Toggle Audio Playback Mute"
+            >
+              {isAudioMuted ? (
+                <MdMusicOff className="h-6 w-6" />
+              ) : (
+                <MdMusicNote className="h-6 w-6" />
+              )}
+            </button>
+          </div>
+        )}
+
+      {/* Mic mute toggle appears only while recording */}
+      {recordingStatus === "recording" && (
+        <div className="fixed top-4 right-4 z-50">
           <button
             onClick={toggleMicMute}
             className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
             aria-label="Toggle Microphone Mute"
           >
-            {isMicMuted ? (
+            {isMuted ? (
               <FaMicrophoneSlash className="h-6 w-6" />
             ) : (
               <FaMicrophone className="h-6 w-6" />
@@ -735,18 +701,18 @@ export default function Home() {
             />
 
             <button
-              onClick={recording ? stopRecording : startRecording}
+              onClick={recordingStatus === "recording" ? stopRecord : startRecord}
               className={`bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-red-300 ${
-                recording ? "animate-pulse" : ""
+                recordingStatus === "recording" ? "animate-pulse" : ""
               }`}
-              aria-label={recording ? "Stop Recording" : "Record Audio"}
+              aria-label={recordingStatus === "recording" ? "Stop Recording" : "Record Audio"}
             >
-              {recording ? (
+              {recordingStatus === "recording" ? (
                 <FaMicrophoneSlash className="h-6 w-6" />
               ) : (
                 <FaMicrophone className="h-6 w-6" />
               )}
-              <span>{recording ? "Stop Recording" : "Record Audio"}</span>
+              <span>{recordingStatus === "recording" ? "Stop Recording" : "Record Audio"}</span>
             </button>
           </div>
           <Image src="/speaker.svg" alt="Speaker" width={120} height={120} className="opacity-50" />
@@ -806,7 +772,6 @@ export default function Home() {
         .animate-rotate-slow {
           animation: rotate-slow 20s linear infinite;
         }
-
         @keyframes ping-slow {
           0% {
             transform: scale(1);
@@ -820,7 +785,6 @@ export default function Home() {
         .animate-ping-slow {
           animation: ping-slow 4s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
-
         @keyframes pulse-scale {
           0% {
             transform: scale(1);
