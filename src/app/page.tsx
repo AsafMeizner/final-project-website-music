@@ -989,12 +989,15 @@ export default function Home() {
 
       {/* FINISHED: Audio does NOT auto-play */}
       {stage === "finished" && (
-        <div className="flex flex-col md:flex-row gap-8 items-center w-full max-w-5xl">
-          <div className="flex flex-col gap-8 md:w-1/3">
-            {renderGenreAndSeeds()}
-          </div>
-          <div className="md:w-2/3">
-            {renderLinearTimeline()}
+        <div className="flex flex-col gap-8 w-full max-w-5xl">
+          {renderSpeakerWithWaves()}
+          <div className="flex flex-col md:flex-row gap-8 items-center">
+            <div className="flex flex-col gap-8 md:w-1/3">
+              {renderGenreAndSeeds()}
+            </div>
+            <div className="md:w-2/3">
+              {renderLinearTimeline()}
+            </div>
           </div>
           {(recordedAudioUrl || uploadedAudioUrl) && (
             <audio
