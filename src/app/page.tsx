@@ -21,12 +21,10 @@ import {
   FaGuitar,
   FaDrum,
   FaMicrophone,
+  FaMicrophoneSlash,
 } from "react-icons/fa";
-import {
-  GiViolin,
-  GiSaxophone,
-} from "react-icons/gi";
-import { MdMusicNote, MdMusicOff } from "react-icons/md"; // Material Design Music Note
+import { GiViolin, GiSaxophone } from "react-icons/gi";
+import { MdMusicNote, MdMusicOff } from "react-icons/md"; // Material Design Music Icons
 import { IoIosMusicalNote } from "react-icons/io"; // Ionicons
 import { v4 as uuidv4 } from "uuid"; // For unique keys
 
@@ -170,6 +168,17 @@ export default function Home() {
     "idle"
   );
 
+  // ----- AUDIO INPUT STATE -----
+  const [recording, setRecording] = useState(false);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [isAudioMuted, setIsAudioMuted] = useState(false);
+
+  // Refs for recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
   // ----- SEGMENT SENTIMENT DATA -----
   const totalSegments = 12; // 60s / 5s
   const [segments, setSegments] = useState<SegmentSentiment[]>(() =>
@@ -312,7 +321,11 @@ export default function Home() {
       const type = shuffleArray(noteTypes)[0];
 
       // Randomly select a color
-      const color = shuffleArray(["text-red-500", "text-blue-500", "text-green-500"])[0];
+      const color = shuffleArray([
+        "text-red-500",
+        "text-blue-500",
+        "text-green-500",
+      ])[0];
 
       // Randomly select an angle between 0 and 360 degrees
       const angle = Math.random() * 360;
@@ -350,6 +363,8 @@ export default function Home() {
     }
 
     setError(null);
+    const fileUrl = URL.createObjectURL(file);
+    setUploadedAudioUrl(fileUrl);
     setStage("uploading");
 
     // Simulate upload delay
@@ -357,6 +372,63 @@ export default function Home() {
       setStage("processing");
       startProcessing();
     }, 2000);
+  };
+
+  // ----- Recording Functions -----
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const options = { mimeType: "audio/webm" };
+      const mediaRecorder = new MediaRecorder(stream, options);
+      let chunks: BlobPart[] = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunks.push(e.data);
+        }
+      };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        setRecordedAudioUrl(url);
+        chunks = [];
+        // After recording stops, simulate upload delay and processing
+        setStage("uploading");
+        setTimeout(() => {
+          setStage("processing");
+          startProcessing();
+        }, 2000);
+      };
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+      setRecording(true);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      setError("Could not access microphone.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      // Stop all tracks
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      setRecording(false);
+    }
+  };
+
+  const toggleMicMute = () => {
+    if (mediaStreamRef.current) {
+      const newMuted = !isMicMuted;
+      mediaStreamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !newMuted;
+      });
+      setIsMicMuted(newMuted);
+    }
+  };
+
+  const toggleAudioMute = () => {
+    setIsAudioMuted((prev) => !prev);
   };
 
   // ----- Simulate Processing by Locking Segments -----
@@ -441,7 +513,7 @@ export default function Home() {
   const renderCircularAreaChart = () => {
     return (
       <svg width={400} height={400} viewBox="-200 -200 400 400" className="absolute">
-        {shuffledSentiments.map(({ sentiment, opacity }, index) => {
+        {shuffledSentiments.map(({ sentiment, opacity }) => {
           const points = segments.map((seg, i) => {
             const angle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2; // Start from top
             const sentimentValue = seg[sentiment].value;
@@ -631,7 +703,9 @@ export default function Home() {
             width={120}
             height={120}
             className={`transition-transform duration-500 ${
-              stage === "processing" ? "animate-pulse-scale animate-rotate-slow" : ""
+              stage === "processing"
+                ? "animate-pulse-scale animate-rotate-slow"
+                : ""
             }`}
           />
         </div>
@@ -654,35 +728,89 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 ease-in-out">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 ease-in-out relative">
       <h1 className="text-3xl font-bold">Music Sentiment & Genre Analyzer</h1>
 
-      {/* IDLE: Upload Button */}
+      {/* Mute Toggle Buttons */}
+      {(stage === "processing" || stage === "finished") && (recordedAudioUrl || uploadedAudioUrl) && (
+        <div className="fixed top-4 left-4 z-50 flex space-x-4">
+          <button
+            onClick={toggleAudioMute}
+            className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
+            aria-label="Toggle Audio Playback Mute"
+          >
+            {isAudioMuted ? (
+              <MdMusicOff className="h-6 w-6" />
+            ) : (
+              <MdMusicNote className="h-6 w-6" />
+            )}
+          </button>
+        </div>
+      )}
+      {recording && (
+        <div className="fixed top-4 left-4 z-50">
+          <button
+            onClick={toggleMicMute}
+            className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
+            aria-label="Toggle Microphone Mute"
+          >
+            {isMicMuted ? (
+              <FaMicrophoneSlash className="h-6 w-6" />
+            ) : (
+              <FaMicrophone className="h-6 w-6" />
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* IDLE: Upload & Record Buttons */}
       {stage === "idle" && (
         <div className="flex flex-col items-center space-y-4 transition-all duration-500 ease-in-out">
-          <label
-            htmlFor="upload-audio"
-            className="cursor-pointer bg-indigo-600 text-white px-6 py-3 mt-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            aria-label="Upload Audio File"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+          <div className="flex space-x-4">
+            <label
+              htmlFor="upload-audio"
+              className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              aria-label="Upload Audio File"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>Upload Audio</span>
-          </label>
-          <input
-            id="upload-audio"
-            type="file"
-            accept="audio/*"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
+              <span>Upload Audio</span>
+            </label>
+            <input
+              id="upload-audio"
+              type="file"
+              accept="audio/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+
+            <button
+              onClick={recording ? stopRecording : startRecording}
+              className={`bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-red-300 ${
+                recording ? "animate-pulse" : ""
+              }`}
+              aria-label={recording ? "Stop Recording" : "Record Audio"}
+            >
+              {recording ? (
+                <FaMicrophoneSlash className="h-6 w-6" />
+              ) : (
+                <FaMicrophone className="h-6 w-6" />
+              )}
+              <span>{recording ? "Stop Recording" : "Record Audio"}</span>
+            </button>
+          </div>
           <Image
             src="/speaker.svg"
             alt="Speaker"
@@ -710,7 +838,19 @@ export default function Home() {
       )}
 
       {/* PROCESSING */}
-      {stage === "processing" && renderSpeakerWithWaves()}
+      {stage === "processing" && (
+        <>
+          {renderSpeakerWithWaves()}
+          {/* Hidden audio playback */}
+          {(recordedAudioUrl || uploadedAudioUrl) && (
+            <audio
+              src={recordedAudioUrl || uploadedAudioUrl || ""}
+              autoPlay
+              muted={isAudioMuted}
+            />
+          )}
+        </>
+      )}
 
       {/* FINISHED: Show linear timeline + top genres */}
       {stage === "finished" && (
@@ -720,6 +860,14 @@ export default function Home() {
 
           {/* Linear Timeline and Genres */}
           {renderLinearTimelineAndGenres()}
+          {/* Hidden audio playback */}
+          {(recordedAudioUrl || uploadedAudioUrl) && (
+            <audio
+              src={recordedAudioUrl || uploadedAudioUrl || ""}
+              autoPlay
+              muted={isAudioMuted}
+            />
+          )}
         </div>
       )}
 
@@ -749,6 +897,22 @@ export default function Home() {
         }
         .animate-ping-slow {
           animation: ping-slow 4s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        /* Example pulse animation for the speaker image when processing */
+        @keyframes pulse-scale {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.05);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+        .animate-pulse-scale {
+          animation: pulse-scale 2s ease-in-out infinite;
         }
       `}</style>
     </div>
