@@ -15,6 +15,7 @@
     "react-dom": "^19.0.0",
     "react-icons": "^5.4.0",
     "react-media-recorder": "^1.7.1",
+    "react-use-audio-recorder": "^0.4.1",
     "recharts": "^2.15.0",
     "uuid": "^11.0.3"
   },
