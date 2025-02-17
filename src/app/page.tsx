@@ -996,10 +996,9 @@ export default function Home() {
               src={recordedAudioUrl || uploadedAudioUrl || ""}
               controls
               muted={isAudioMuted}
-              className="mt-4"
             />
           )}
-          <div className="flex flex-col md:flex-row gap-8 items-center">
+          <div className="flex flex-col md:flex-row gap-8 items-stretch">
             <div className="flex flex-col gap-8 md:w-1/3 items-center">
               {renderGenreAndSeeds()}
             </div>
