@@ -191,11 +191,10 @@ const RecordModal: React.FC<RecordModalProps> = ({
 
   const startRecording = async () => {
     try {
-      const constraints = {
-        audio: selectedMic ? { deviceId: { exact: selectedMic } } : true,
-      };
+      const constraints = { audio: selectedMic ? { deviceId: { exact: selectedMic } } : true };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
+
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm";
@@ -281,7 +280,7 @@ const RecordModal: React.FC<RecordModalProps> = ({
     }
   };
 
-  // Close modal when clicking on background
+  // Close modal when clicking on the background
   const handleBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -313,7 +312,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
           exit={{ scale: 0.8, opacity: 0 }}
         >
           <h2 className="text-xl font-bold mb-4">Record Audio</h2>
-
           {mics.length > 1 && (
             <select
               value={selectedMic || ""}
@@ -327,7 +325,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
               ))}
             </select>
           )}
-
           <div className="flex flex-col items-center space-y-3">
             <button
               onClick={isRecording ? stopRecording : startRecording}
@@ -339,7 +336,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
             >
               {isRecording ? "Stop Recording" : "Start Recording"}
             </button>
-
             {isRecording && (
               <button
                 onClick={pauseResumeRecording}
@@ -348,7 +344,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
                 {isPaused ? "Resume Recording" : "Pause Recording"}
               </button>
             )}
-
             {isRecording && (
               <button
                 onClick={toggleMute}
@@ -357,7 +352,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
                 {isMuted ? "Unmute Mic" : "Mute Mic"}
               </button>
             )}
-
             {isRecording && (
               <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                 <div
@@ -367,7 +361,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
               </div>
             )}
           </div>
-
           <button
             onClick={onClose}
             className="mt-4 text-sm text-red-600 hover:underline"
@@ -381,7 +374,7 @@ const RecordModal: React.FC<RecordModalProps> = ({
 };
 
 /* ============================
-   Genre & Seeds Container (Finished State)
+   Genre & Seeds Container
 ============================ */
 interface GenreSeed {
   label: string;
@@ -399,7 +392,6 @@ const seeds: GenreSeed[] = [
 const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Predicted Genre Card */}
       <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center">
         <h3 className="text-lg font-semibold mb-2">Predicted Genre</h3>
         {genre ? (
@@ -413,7 +405,6 @@ const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
           <span className="text-gray-500">No genre predicted</span>
         )}
       </div>
-      {/* Seeds Card */}
       <div className="flex-1 bg-white rounded-lg shadow p-4">
         <h3 className="text-lg font-semibold mb-2">Seeds</h3>
         <div className="flex flex-wrap gap-2">
@@ -471,21 +462,9 @@ export default function Home() {
   const [segments, setSegments] = useState<SegmentSentiment[]>(() =>
     Array.from({ length: totalSegments }, (_, i) => ({
       timeSec: i * 5,
-      valence: {
-        value: Math.random(),
-        target: Math.random(),
-        speed: Math.random() * 0.005 + 0.002,
-      },
-      arousal: {
-        value: Math.random(),
-        target: Math.random(),
-        speed: Math.random() * 0.005 + 0.002,
-      },
-      dominance: {
-        value: Math.random(),
-        target: Math.random(),
-        speed: Math.random() * 0.005 + 0.002,
-      },
+      valence: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
+      arousal: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
+      dominance: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
       locked: false,
     }))
   );
@@ -494,7 +473,7 @@ export default function Home() {
   const [genres, setGenres] = useState<GenrePrediction[]>([]);
 
   // ----- Shuffled Sentiments State -----
-  const sentiments: Array<"valence" | "arousal" | "dominance"> = [
+  const sentiments: ("valence" | "arousal" | "dominance")[] = [
     "valence",
     "arousal",
     "dominance",
@@ -533,9 +512,7 @@ export default function Home() {
       setSegments((prevSegments) =>
         prevSegments.map((seg) => {
           if (seg.locked) return seg;
-          const updateSentiment = (
-            sentiment: "valence" | "arousal" | "dominance"
-          ) => {
+          const updateSentiment = (sentiment: "valence" | "arousal" | "dominance") => {
             const current = seg[sentiment].value;
             const target = seg[sentiment].target;
             const speed = seg[sentiment].speed;
@@ -610,13 +587,13 @@ export default function Home() {
 
   // ----- Inline Recording Functions (if needed) -----
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const inlineMediaStreamRef = useRef<MediaStream | null>(null);
   const startRecordingInline = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: selectedMic ? { deviceId: { exact: selectedMic } } : true,
       });
-      mediaStreamRef.current = stream;
+      inlineMediaStreamRef.current = stream;
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm";
@@ -651,15 +628,15 @@ export default function Home() {
   const stopRecordingInline = () => {
     if (mediaRecorderRef.current && recording) {
       mediaRecorderRef.current.stop();
-      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      inlineMediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       setRecording(false);
     }
   };
 
   const toggleMicMute = () => {
-    if (mediaStreamRef.current) {
+    if (inlineMediaStreamRef.current) {
       const newMuted = !isMicMuted;
-      mediaStreamRef.current.getAudioTracks().forEach((track) => {
+      inlineMediaStreamRef.current.getAudioTracks().forEach((track) => {
         track.enabled = !newMuted;
       });
       setIsMicMuted(newMuted);
@@ -830,9 +807,10 @@ export default function Home() {
   };
 
   // ----- Render Predicted Genre & Seeds Container -----
-  // Use only the top genre (if any) and a set of seed values
   const topGenre =
-    genres && genres.length > 0 ? genres.reduce((max, g) => (g.score > max.score ? g : max), genres[0]) : null;
+    genres && genres.length > 0
+      ? genres.reduce((max, g) => (g.score > max.score ? g : max), genres[0])
+      : null;
 
   const seeds = [
     { label: "Happy", icon: FaMusic, color: "text-yellow-500" },
@@ -844,7 +822,6 @@ export default function Home() {
   const renderGenreAndSeeds = () => {
     return (
       <div className="flex flex-col gap-4 h-full">
-        {/* Predicted Genre Card */}
         <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center">
           <h3 className="text-lg font-semibold mb-2">Predicted Genre</h3>
           {topGenre ? (
@@ -858,7 +835,6 @@ export default function Home() {
             <span className="text-gray-500">No genre predicted</span>
           )}
         </div>
-        {/* Seeds Card */}
         <div className="flex-1 bg-white rounded-lg shadow p-4">
           <h3 className="text-lg font-semibold mb-2">Seeds</h3>
           <div className="flex flex-wrap gap-2">
@@ -873,16 +849,6 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </div>
-    );
-  };
-
-  // ----- Render Combined Right Column (Genre & Seeds)
-  // The combined container will match the height of the graph container.
-  const renderRightColumn = () => {
-    return (
-      <div className="flex flex-col gap-4 h-full">
-        {renderGenreAndSeeds()}
       </div>
     );
   };
@@ -994,13 +960,7 @@ export default function Home() {
               <span>Record Audio</span>
             </button>
           </div>
-          <Image
-            src="/speaker.svg"
-            alt="Speaker"
-            width={120}
-            height={120}
-            className="opacity-50"
-          />
+          <Image src="/speaker.svg" alt="Speaker" width={120} height={120} className="opacity-50" />
           {error && <div className="mt-4 text-red-500">{error}</div>}
         </div>
       )}
@@ -1009,23 +969,18 @@ export default function Home() {
       {stage === "uploading" && (
         <div className="flex flex-col items-center space-y-4 transition-all duration-500">
           <p className="text-lg text-gray-700 animate-pulse">Uploading...</p>
-          <Image
-            src="/speaker.svg"
-            alt="Speaker"
-            width={120}
-            height={120}
-            className="relative"
-          />
+          <Image src="/speaker.svg" alt="Speaker" width={120} height={120} className="relative" />
         </div>
       )}
 
-      {/* PROCESSING */}
+      {/* PROCESSING: Audio auto plays */}
       {stage === "processing" && (
         <>
           {renderSpeakerWithWaves()}
           {(recordedAudioUrl || uploadedAudioUrl) && (
             <audio
               src={recordedAudioUrl || uploadedAudioUrl || ""}
+              autoPlay
               controls
               muted={isAudioMuted}
               className="mt-4"
@@ -1034,7 +989,7 @@ export default function Home() {
         </>
       )}
 
-      {/* FINISHED */}
+      {/* FINISHED: Audio does not auto play */}
       {stage === "finished" && (
         <div className="flex flex-col md:flex-row gap-8 items-center w-full max-w-5xl">
           {renderLinearTimeline()}
