@@ -25,6 +25,7 @@ import {
 } from "react-icons/fa";
 import { GiViolin, GiSaxophone } from "react-icons/gi";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
+import { IoIosMusicalNote } from "react-icons/io";
 import { v4 as uuidv4 } from "uuid";
 import { useReactMediaRecorder } from "react-media-recorder";
 
@@ -52,7 +53,7 @@ interface SegmentSentiment {
 /** Genre prediction */
 interface GenrePrediction {
   name: string;
-  score: number; // 0..1
+  score: number;
 }
 
 /** Represents a sentiment with its rendering order and opacity */
@@ -84,18 +85,10 @@ const genreIconMap: Record<string, IconType> = {
   Punk: FaDrum,
   RnB: FaMicrophone,
   Folk: FaGuitar,
-  // Add more genres as needed
 };
 
 /** Array of different music note icons */
 const noteTypes: IconType[] = [FaMusic, MdMusicNote];
-
-/** Color classes based on sentiments */
-const sentimentColorMap: Record<"valence" | "arousal" | "dominance", string[]> = {
-  valence: ["text-purple-500", "text-pink-500", "text-indigo-500"],
-  arousal: ["text-green-500", "text-teal-500", "text-lime-500"],
-  dominance: ["text-yellow-500", "text-orange-500", "text-amber-500"],
-};
 
 /** MusicNote Component */
 interface MusicNoteProps {
@@ -125,7 +118,7 @@ const MusicNote: React.FC<MusicNoteProps> = ({
   });
 
   useEffect(() => {
-    const distance = 150;
+    const distance = 150; // Distance in pixels
     const radians = (angle * Math.PI) / 180;
     const x = distance * Math.cos(radians);
     const y = distance * Math.sin(radians);
@@ -156,54 +149,41 @@ const MusicNote: React.FC<MusicNoteProps> = ({
   );
 };
 
-/** Shuffle array helper function */
-const shuffleArray = <T,>(array: T[]): T[] => array.sort(() => Math.random() - 0.5);
+/** Helper: Shuffle array */
+const shuffleArray = <T,>(array: T[]): T[] => {
+  return array.sort(() => Math.random() - 0.5);
+};
 
 export default function Home() {
   // ----- STAGE MANAGEMENT -----
-  const [stage, setStage] = useState<"idle" | "uploading" | "processing" | "finished">(
-    "idle"
-  );
+  const [stage, setStage] = useState<
+    "idle" | "uploading" | "processing" | "finished"
+  >("idle");
 
   // ----- AUDIO INPUT STATE -----
-  // For file upload:
-  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
-  // For recorded audio via react-media-recorder:
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
-  // For controlling audio playback (music) while processing:
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
 
-  // ----- React Media Recorder Hook (for audio) -----
+  // Use react-media-recorder hook for audio recording.
   const {
     status: recordingStatus,
-    startRecording: startRecord,
-    stopRecording: stopRecord,
-    mediaBlobUrl,
-    muteAudio,
-    unmuteAudio,
-    isMuted,
+    startRecording: startRecordingFromHook,
+    stopRecording: stopRecordingFromHook,
+    mediaBlobUrl: hookMediaBlobUrl,
   } = useReactMediaRecorder({ audio: true });
 
-  // Show mic mute toggle while recording using the hook’s mute/unmute
-  const toggleMicMute = () => {
-    if (isMuted) {
-      unmuteAudio();
-    } else {
-      muteAudio();
-    }
-  };
-
-  // When a recorded blob URL becomes available, trigger processing.
+  // When recording stops and we have a blob URL, simulate upload then processing.
   useEffect(() => {
-    if (mediaBlobUrl && stage === "idle") {
-      setRecordedAudioUrl(mediaBlobUrl);
+    if (hookMediaBlobUrl && stage === "idle") {
+      setRecordedAudioUrl(hookMediaBlobUrl);
       setStage("uploading");
       setTimeout(() => {
         setStage("processing");
         startProcessing();
       }, 2000);
     }
-  }, [mediaBlobUrl, stage]);
+  }, [hookMediaBlobUrl, stage]);
 
   // ----- SEGMENT SENTIMENT DATA -----
   const totalSegments = 12;
@@ -278,7 +258,9 @@ export default function Home() {
         prevSegments.map((seg) => {
           if (seg.locked) return seg;
 
-          const updateSentiment = (sentiment: "valence" | "arousal" | "dominance") => {
+          const updateSentiment = (
+            sentiment: "valence" | "arousal" | "dominance"
+          ) => {
             const current = seg[sentiment].value;
             const target = seg[sentiment].target;
             const speed = seg[sentiment].speed;
@@ -299,7 +281,6 @@ export default function Home() {
                 speed: Math.random() * 0.005 + 0.002,
               };
             }
-
             return { ...seg[sentiment], value: newValue };
           };
 
@@ -325,7 +306,7 @@ export default function Home() {
   // ----- Music Notes State -----
   const [musicNotes, setMusicNotes] = useState<MusicNoteData[]>([]);
 
-  // ----- Effect to Generate Music Notes Continuously -----
+  // ----- Generate Music Notes Continuously -----
   useEffect(() => {
     if (stage !== "processing") return;
 
@@ -360,7 +341,6 @@ export default function Home() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-
     const file = e.target.files[0];
 
     if (!file.type.startsWith("audio/")) {
@@ -425,10 +405,9 @@ export default function Home() {
     }, 5000);
   };
 
-  // ----- Generate Smooth Path -----
+  // ----- Generate Smooth Path for SVG -----
   const generateSmoothPath = (points: { x: number; y: number }[]): string => {
     if (points.length < 2) return "";
-
     let path = `M ${points[0].x} ${points[0].y}`;
 
     for (let i = 0; i < points.length; i++) {
@@ -464,45 +443,32 @@ export default function Home() {
           });
 
           const path = generateSmoothPath(points);
+          const rgb =
+            sentiment === "valence"
+              ? "136, 132, 216"
+              : sentiment === "arousal"
+              ? "130, 202, 157"
+              : "255, 198, 88";
+
+          const strokeColor =
+            sentiment === "valence"
+              ? "#8884d8"
+              : sentiment === "arousal"
+              ? "#82ca9d"
+              : "#ffc658";
 
           return (
             <path
               key={sentiment}
               d={path}
-              fill={`rgba(${getRGB(sentiment)}, ${opacity})`}
-              stroke={getStrokeColor(sentiment)}
+              fill={`rgba(${rgb}, ${opacity})`}
+              stroke={strokeColor}
               strokeWidth={2}
             />
           );
         })}
       </svg>
     );
-  };
-
-  const getRGB = (sentiment: "valence" | "arousal" | "dominance"): string => {
-    switch (sentiment) {
-      case "valence":
-        return "136, 132, 216";
-      case "arousal":
-        return "130, 202, 157";
-      case "dominance":
-        return "255, 198, 88";
-      default:
-        return "0,0,0";
-    }
-  };
-
-  const getStrokeColor = (sentiment: "valence" | "arousal" | "dominance"): string => {
-    switch (sentiment) {
-      case "valence":
-        return "#8884d8";
-      case "arousal":
-        return "#82ca9d";
-      case "dominance":
-        return "#ffc658";
-      default:
-        return "#000000";
-    }
   };
 
   // ----- Prepare Data for Recharts -----
@@ -624,9 +590,7 @@ export default function Home() {
             angle={note.angle}
             color={note.color}
             type={note.type}
-            onAnimationEnd={(id) =>
-              setMusicNotes((prev) => prev.filter((n) => n.id !== id))
-            }
+            onAnimationEnd={(id) => setMusicNotes((prev) => prev.filter((n) => n.id !== id))}
           />
         ))}
       </div>
@@ -636,41 +600,6 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 ease-in-out relative">
       <h1 className="text-3xl font-bold">Music Sentiment & Genre Analyzer</h1>
-
-      {/* Mute Toggle Buttons for playback (music) */}
-      {(stage === "processing" || stage === "finished") &&
-        (recordedAudioUrl || uploadedAudioUrl) && (
-          <div className="fixed top-4 left-4 z-50 flex space-x-4">
-            <button
-              onClick={() => setIsAudioMuted((prev) => !prev)}
-              className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
-              aria-label="Toggle Audio Playback Mute"
-            >
-              {isAudioMuted ? (
-                <MdMusicOff className="h-6 w-6" />
-              ) : (
-                <MdMusicNote className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-        )}
-
-      {/* Mic mute toggle appears only while recording */}
-      {recordingStatus === "recording" && (
-        <div className="fixed top-4 right-4 z-50">
-          <button
-            onClick={toggleMicMute}
-            className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
-            aria-label="Toggle Microphone Mute"
-          >
-            {isMuted ? (
-              <FaMicrophoneSlash className="h-6 w-6" />
-            ) : (
-              <FaMicrophone className="h-6 w-6" />
-            )}
-          </button>
-        </div>
-      )}
 
       {/* IDLE: Upload & Record Buttons */}
       {stage === "idle" && (
@@ -701,18 +630,26 @@ export default function Home() {
             />
 
             <button
-              onClick={recordingStatus === "recording" ? stopRecord : startRecord}
+              onClick={
+                recordingStatus === "recording"
+                  ? stopRecordingFromHook
+                  : startRecordingFromHook
+              }
               className={`bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-red-300 ${
                 recordingStatus === "recording" ? "animate-pulse" : ""
               }`}
-              aria-label={recordingStatus === "recording" ? "Stop Recording" : "Record Audio"}
+              aria-label={
+                recordingStatus === "recording" ? "Stop Recording" : "Record Audio"
+              }
             >
               {recordingStatus === "recording" ? (
                 <FaMicrophoneSlash className="h-6 w-6" />
               ) : (
                 <FaMicrophone className="h-6 w-6" />
               )}
-              <span>{recordingStatus === "recording" ? "Stop Recording" : "Record Audio"}</span>
+              <span>
+                {recordingStatus === "recording" ? "Stop Recording" : "Record Audio"}
+              </span>
             </button>
           </div>
           <Image src="/speaker.svg" alt="Speaker" width={120} height={120} className="opacity-50" />
@@ -743,7 +680,7 @@ export default function Home() {
         </>
       )}
 
-      {/* FINISHED: Show linear timeline + top genres */}
+      {/* FINISHED: Show Linear Timeline & Genres */}
       {stage === "finished" && (
         <div className="flex flex-col items-center w-full max-w-5xl">
           {renderSpeakerWithWaves()}
@@ -772,6 +709,7 @@ export default function Home() {
         .animate-rotate-slow {
           animation: rotate-slow 20s linear infinite;
         }
+
         @keyframes ping-slow {
           0% {
             transform: scale(1);
@@ -785,6 +723,7 @@ export default function Home() {
         .animate-ping-slow {
           animation: ping-slow 4s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
+
         @keyframes pulse-scale {
           0% {
             transform: scale(1);
