@@ -191,10 +191,11 @@ const RecordModal: React.FC<RecordModalProps> = ({
 
   const startRecording = async () => {
     try {
-      const constraints = { audio: selectedMic ? { deviceId: { exact: selectedMic } } : true };
+      const constraints = {
+        audio: selectedMic ? { deviceId: { exact: selectedMic } } : true,
+      };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
-
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm";
@@ -298,15 +299,16 @@ const RecordModal: React.FC<RecordModalProps> = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        onClick={onClose}
       >
         <motion.div
           className="bg-white rounded-lg p-6 w-80 shadow-lg"
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
         >
           <h2 className="text-xl font-bold mb-4">Record Audio</h2>
-
           {mics.length > 1 && (
             <select
               value={selectedMic || ""}
@@ -320,19 +322,16 @@ const RecordModal: React.FC<RecordModalProps> = ({
               ))}
             </select>
           )}
-
           <div className="flex flex-col items-center space-y-3">
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              className={`w-full px-4 py-2 rounded-full transition ${
-                isRecording
+              className={`w-full px-4 py-2 rounded-full transition ${isRecording
                   ? "bg-red-600 hover:bg-red-500 animate-pulse"
                   : "bg-green-600 hover:bg-green-500"
-              } text-white`}
+                } text-white`}
             >
               {isRecording ? "Stop Recording" : "Start Recording"}
             </button>
-
             {isRecording && (
               <button
                 onClick={pauseResumeRecording}
@@ -341,7 +340,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
                 {isPaused ? "Resume Recording" : "Pause Recording"}
               </button>
             )}
-
             {isRecording && (
               <button
                 onClick={toggleMute}
@@ -350,7 +348,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
                 {isMuted ? "Unmute Mic" : "Mute Mic"}
               </button>
             )}
-
             {isRecording && (
               <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
                 <div
@@ -360,7 +357,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
               </div>
             )}
           </div>
-
           <button
             onClick={onClose}
             className="mt-4 text-sm text-red-600 hover:underline"
@@ -390,7 +386,7 @@ export default function Home() {
   // ----- Record Modal State -----
   const [showRecordModal, setShowRecordModal] = useState(false);
 
-  // ----- Microphone Selection (for recording) -----
+  // ----- Microphone Selection -----
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [selectedMic, setSelectedMic] = useState<string | null>(null);
 
@@ -412,9 +408,21 @@ export default function Home() {
   const [segments, setSegments] = useState<SegmentSentiment[]>(() =>
     Array.from({ length: totalSegments }, (_, i) => ({
       timeSec: i * 5,
-      valence: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
-      arousal: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
-      dominance: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
+      valence: {
+        value: Math.random(),
+        target: Math.random(),
+        speed: Math.random() * 0.005 + 0.002,
+      },
+      arousal: {
+        value: Math.random(),
+        target: Math.random(),
+        speed: Math.random() * 0.005 + 0.002,
+      },
+      dominance: {
+        value: Math.random(),
+        target: Math.random(),
+        speed: Math.random() * 0.005 + 0.002,
+      },
       locked: false,
     }))
   );
@@ -507,7 +515,11 @@ export default function Home() {
     if (stage !== "processing") return;
     const noteInterval = setInterval(() => {
       const type = shuffleArray(noteTypes)[0];
-      const color = shuffleArray(["text-red-500", "text-blue-500", "text-green-500"])[0];
+      const color = shuffleArray([
+        "text-red-500",
+        "text-blue-500",
+        "text-green-500",
+      ])[0];
       const angle = Math.random() * 360;
       const newNote: MusicNoteData = { id: uuidv4(), angle, color, type };
       setMusicNotes((prev) => [...prev, newNote]);
@@ -537,7 +549,7 @@ export default function Home() {
     }, 2000);
   };
 
-  // ----- Recording Functions (for inline recording if needed) -----
+  // ----- Inline Recording Functions (if needed) -----
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
@@ -608,12 +620,12 @@ export default function Home() {
         prev.map((seg, i) =>
           i === currentIdx
             ? {
-                ...seg,
-                locked: true,
-                valence: { ...seg.valence, target: seg.valence.value, speed: 0 },
-                arousal: { ...seg.arousal, target: seg.arousal.value, speed: 0 },
-                dominance: { ...seg.dominance, target: seg.dominance.value, speed: 0 },
-              }
+              ...seg,
+              locked: true,
+              valence: { ...seg.valence, target: seg.valence.value, speed: 0 },
+              arousal: { ...seg.arousal, target: seg.arousal.value, speed: 0 },
+              dominance: { ...seg.dominance, target: seg.dominance.value, speed: 0 },
+            }
             : seg
         )
       );
@@ -727,7 +739,7 @@ export default function Home() {
     const data = prepareRechartsData();
     const averages = calculateAverages();
     return (
-      <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 transition-transform duration-500 hover:scale-105">
+      <div className="w-full md:w-2/3 bg-white rounded-lg shadow p-6 transition-transform duration-500 hover:scale-105">
         <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -759,32 +771,46 @@ export default function Home() {
     );
   };
 
-  // ----- Render Linear Timeline and Genres -----
-  const renderLinearTimelineAndGenres = () => {
-    if (stage !== "finished") return null;
+  // ----- Render Genre & Seeds Containers -----
+  const renderGenreAndSeeds = () => {
+    // Show only one genre (top predicted) and a seeds container with fixed seed words.
+    const topGenre =
+      genres.length > 0
+        ? genres.sort((a, b) => b.score - a.score)[0].name
+        : "N/A";
+    const seeds = ["happy", "sad", "excited", "calm", "energetic"];
     return (
-      <div className="flex flex-col md:flex-row w-full max-w-5xl gap-8 transition-transform duration-500 hover:scale-105">
-        <div className="md:w-1/3 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Top Predicted Genres</h2>
+      <div className="w-full md:w-1/3 flex flex-col gap-4">
+        <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center">
+          <h2 className="text-xl font-semibold mb-2">Top Genre</h2>
+          <div className="text-lg font-medium">{topGenre}</div>
+        </div>
+        <div className="flex-1 bg-white rounded-lg shadow p-4">
+          <h2 className="text-xl font-semibold mb-2">Seeds</h2>
           <ul className="space-y-2">
-            {genres.map((genre, idx) => {
-              const Icon = genreIconMap[genre.name] || FaMusic;
-              return (
-                <li key={idx} className="flex items-center space-x-3 p-2 bg-gray-100 rounded">
-                  <Icon className="text-xl text-indigo-600" />
-                  <span className="flex-1 font-medium">{genre.name}</span>
-                  <span className="text-sm text-gray-700">{(genre.score * 100).toFixed(1)}%</span>
-                </li>
-              );
-            })}
+            {seeds.map((seed) => (
+              <li key={seed} className="text-lg font-medium">
+                {seed}
+              </li>
+            ))}
           </ul>
         </div>
-        {renderLinearTimeline()}
       </div>
     );
   };
 
-  // ----- Render Speaker with Waves & Animated Music Notes -----
+  // ----- Render Combined Timeline and Genre/Seeds -----
+  const renderTimelineAndInfo = () => {
+    if (stage !== "finished") return null;
+    return (
+      <div className="flex flex-col md:flex-row w-full max-w-5xl gap-4 transition-transform duration-500 hover:scale-105">
+        {renderLinearTimeline()}
+        {renderGenreAndSeeds()}
+      </div>
+    );
+  };
+
+  // ----- Render Speaker with Waves & Music Notes -----
   const renderSpeakerWithWaves = () => {
     return (
       <div className="relative w-[400px] h-[400px] flex items-center justify-center transition-transform duration-500 hover:scale-105">
@@ -795,9 +821,8 @@ export default function Home() {
             alt="Speaker"
             width={120}
             height={120}
-            className={`transition-transform duration-500 ${
-              stage === "processing" ? "animate-pulse-scale animate-rotate-slow" : ""
-            }`}
+            className={`transition-transform duration-500 ${stage === "processing" ? "animate-pulse-scale animate-rotate-slow" : ""
+              }`}
           />
         </div>
         {musicNotes.map((note) => (
@@ -829,12 +854,16 @@ export default function Home() {
               className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
               aria-label="Toggle Audio Playback Mute"
             >
-              {isAudioMuted ? <MdMusicOff className="h-6 w-6" /> : <MdMusicNote className="h-6 w-6" />}
+              {isAudioMuted ? (
+                <MdMusicOff className="h-6 w-6" />
+              ) : (
+                <MdMusicNote className="h-6 w-6" />
+              )}
             </button>
           </div>
         )}
 
-      {/* Mute Toggle for Mic (when recording inline) */}
+      {/* Mute Toggle for Mic (if inline recording is used) */}
       {recording && (
         <div className="fixed top-4 left-16 z-50">
           <button
@@ -842,7 +871,11 @@ export default function Home() {
             className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
             aria-label="Toggle Microphone Mute"
           >
-            {isMicMuted ? <FaMicrophoneSlash className="h-6 w-6" /> : <FaMicrophone className="h-6 w-6" />}
+            {isMicMuted ? (
+              <FaMicrophoneSlash className="h-6 w-6" />
+            ) : (
+              <FaMicrophone className="h-6 w-6" />
+            )}
           </button>
         </div>
       )}
@@ -903,9 +936,9 @@ export default function Home() {
           {(recordedAudioUrl || uploadedAudioUrl) && (
             <audio
               src={recordedAudioUrl || uploadedAudioUrl || ""}
-              autoPlay
               controls
               muted={isAudioMuted}
+              className="mt-4"
             />
           )}
         </>
@@ -913,15 +946,15 @@ export default function Home() {
 
       {/* FINISHED */}
       {stage === "finished" && (
-        <div className="flex flex-col items-center w-full max-w-5xl">
+        <div className="flex flex-col items-center w-full max-w-5xl space-y-8">
           {renderSpeakerWithWaves()}
-          {renderLinearTimelineAndGenres()}
+          {renderTimelineAndInfo()}
           {(recordedAudioUrl || uploadedAudioUrl) && (
             <audio
               src={recordedAudioUrl || uploadedAudioUrl || ""}
-              autoPlay
               controls
               muted={isAudioMuted}
+              className="mt-4"
             />
           )}
         </div>
