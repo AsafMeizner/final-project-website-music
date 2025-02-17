@@ -781,7 +781,7 @@ export default function Home() {
             <YAxis domain={[0, 1]} />
             <Tooltip />
             <Legend />
-            <Line type="monotone" dataKey="Valence" stroke="#8884d8" activeDot={{ r: 8 }} />
+            <Line type="monotone" dataKey="Valence" stroke="#8884d8" />
             <Line type="monotone" dataKey="Arousal" stroke="#82ca9d" />
             <Line type="monotone" dataKey="Dominance" stroke="#ffc658" />
           </LineChart>

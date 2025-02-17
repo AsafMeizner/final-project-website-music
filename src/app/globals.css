@@ -21,3 +21,24 @@ body {
     stroke-dashoffset: 16;
   }
 }
+
+/* scrollbar ======================================== */
+
+/* Scrollbar for light mode */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #eef3ff; 
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b9c9d2;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e3f1f5;
+}
+
