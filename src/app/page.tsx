@@ -455,6 +455,15 @@ export default function Home() {
       .catch((error) => console.error("Error enumerating devices:", error));
   }, []);
 
+  useEffect(() => {
+    if (stage === "finished") {
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth",
+      });
+    }
+  }, [stage]);
+
   // ----- SEGMENT SENTIMENT DATA -----
   const totalSegments = 12;
   const [segments, setSegments] = useState<SegmentSentiment[]>(() =>
