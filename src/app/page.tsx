@@ -279,7 +279,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
     }
   };
 
-  // Close modal when clicking on background
   const handleBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -390,30 +389,30 @@ const seeds: GenreSeed[] = [
 
 const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col gap-4 h-full">
       <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center">
-        <h3 className="text-lg font-semibold mb-2">Predicted Genre</h3>
+        <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
         {genre ? (
           <div className="flex items-center space-x-3">
             {React.createElement(genreIconMap[genre.name] || FaMusic, {
               className: "text-3xl text-indigo-600",
             })}
-            <span className="text-xl font-medium">{genre.name}</span>
+            <span className="text-2xl font-medium">{genre.name}</span>
           </div>
         ) : (
           <span className="text-gray-500">No genre predicted</span>
         )}
       </div>
       <div className="flex-1 bg-white rounded-lg shadow p-4">
-        <h3 className="text-lg font-semibold mb-2">Seeds</h3>
+        <h3 className="text-xl font-semibold mb-2">Seeds</h3>
         <div className="flex flex-wrap gap-2">
           {seeds.map((seed) => (
             <div
               key={seed.label}
               className="flex items-center space-x-1 bg-gray-100 px-3 py-1 rounded-full"
             >
-              {React.createElement(seed.icon, { className: `text-xl ${seed.color}` })}
-              <span className="font-medium">{seed.label}</span>
+              {React.createElement(seed.icon, { className: `text-2xl ${seed.color}` })}
+              <span className="font-medium text-lg">{seed.label}</span>
             </div>
           ))}
         </div>
@@ -773,7 +772,7 @@ export default function Home() {
     const data = prepareRechartsData();
     const averages = calculateAverages();
     return (
-      <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 transition-transform duration-500 hover:scale-105">
+      <div className="w-full bg-white rounded-lg shadow p-6 transition-transform duration-500 hover:scale-105">
         <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -811,7 +810,7 @@ export default function Home() {
       ? genres.reduce((max, g) => (g.score > max.score ? g : max), genres[0])
       : null;
 
-  const seeds = [
+  const seeds: { label: string; icon: IconType; color: string }[] = [
     { label: "Happy", icon: FaMusic, color: "text-yellow-500" },
     { label: "Sad", icon: FaMicrophoneSlash, color: "text-blue-500" },
     { label: "Excited", icon: FaDrum, color: "text-red-500" },
@@ -820,30 +819,30 @@ export default function Home() {
 
   const renderGenreAndSeeds = () => {
     return (
-      <div className="flex flex-col h-full">
-        <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center">
-          <h3 className="text-lg font-semibold mb-2">Predicted Genre</h3>
+      <div className="flex flex-col gap-4 h-full">
+        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center">
+          <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
           {topGenre ? (
             <div className="flex items-center space-x-3">
               {React.createElement(genreIconMap[topGenre.name] || FaMusic, {
                 className: "text-3xl text-indigo-600",
               })}
-              <span className="text-xl font-medium">{topGenre.name}</span>
+              <span className="text-2xl font-medium">{topGenre.name}</span>
             </div>
           ) : (
             <span className="text-gray-500">No genre predicted</span>
           )}
         </div>
-        <div className="flex-1 bg-white rounded-lg shadow p-4">
-          <h3 className="text-lg font-semibold mb-2">Seeds</h3>
+        <div className="flex-1 bg-white rounded-lg shadow p-6">
+          <h3 className="text-xl font-semibold mb-2">Seeds</h3>
           <div className="flex flex-wrap gap-2">
             {seeds.map((seed) => (
               <div
                 key={seed.label}
                 className="flex items-center space-x-1 bg-gray-100 px-3 py-1 rounded-full"
               >
-                {React.createElement(seed.icon, { className: `text-xl ${seed.color}` })}
-                <span className="font-medium">{seed.label}</span>
+                {React.createElement(seed.icon, { className: `text-2xl ${seed.color}` })}
+                <span className="font-medium text-lg">{seed.label}</span>
               </div>
             ))}
           </div>
@@ -988,12 +987,14 @@ export default function Home() {
         </>
       )}
 
-      {/* FINISHED: Audio does not auto-play */}
+      {/* FINISHED: Audio does NOT auto-play */}
       {stage === "finished" && (
         <div className="flex flex-col md:flex-row gap-8 items-center w-full max-w-5xl">
-          {renderLinearTimeline()}
-          <div className="flex flex-col gap-4 h-full w-full">
+          <div className="flex flex-col gap-8 md:w-1/3">
             {renderGenreAndSeeds()}
+          </div>
+          <div className="md:w-2/3">
+            {renderLinearTimeline()}
           </div>
           {(recordedAudioUrl || uploadedAudioUrl) && (
             <audio
