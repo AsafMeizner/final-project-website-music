@@ -820,7 +820,7 @@ export default function Home() {
   const renderGenreAndSeeds = () => {
     return (
       <div className="flex flex-col gap-4 h-full">
-        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center transition-transform duration-500 hover:scale-105">
+        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center">
           <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
           {topGenre ? (
             <div className="flex items-center space-x-3">
@@ -989,16 +989,8 @@ export default function Home() {
 
       {/* FINISHED: Audio does NOT auto-play */}
       {stage === "finished" && (
-        <div className="flex flex-col gap-8 w-full max-w-5xl">
+        <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto items-center">
           {renderSpeakerWithWaves()}
-          <div className="flex flex-col md:flex-row gap-8 items-center">
-            <div className="flex flex-col gap-8 md:w-1/3">
-              {renderGenreAndSeeds()}
-            </div>
-            <div className="md:w-2/3">
-              {renderLinearTimeline()}
-            </div>
-          </div>
           {(recordedAudioUrl || uploadedAudioUrl) && (
             <audio
               src={recordedAudioUrl || uploadedAudioUrl || ""}
@@ -1007,6 +999,14 @@ export default function Home() {
               className="mt-4"
             />
           )}
+          <div className="flex flex-col md:flex-row gap-8 items-center">
+            <div className="flex flex-col gap-8 md:w-1/3 items-center">
+              {renderGenreAndSeeds()}
+            </div>
+            <div className="md:w-2/3 flex justify-center w-full">
+              {renderLinearTimeline()}
+            </div>
+          </div>
         </div>
       )}
 
