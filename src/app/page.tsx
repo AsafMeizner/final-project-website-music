@@ -372,7 +372,7 @@ const RecordModal: React.FC<RecordModalProps> = ({
 };
 
 /* ============================
-   Genre & Seeds Container
+   Genre & Seeds Component
 ============================ */
 interface GenreSeed {
   label: string;
@@ -390,7 +390,7 @@ const seeds: GenreSeed[] = [
 const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
   return (
     <div className="flex flex-col gap-4 h-full">
-      <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center">
+      <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center transition-transform duration-500 hover:scale-105">
         <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
         {genre ? (
           <div className="flex items-center space-x-3">
@@ -403,16 +403,16 @@ const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
           <span className="text-gray-500">No genre predicted</span>
         )}
       </div>
-      <div className="flex-1 bg-white rounded-lg shadow p-4">
-        <h3 className="text-xl font-semibold mb-2">Seeds</h3>
-        <div className="flex flex-wrap gap-2">
+      <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
+        <h3 className="text-xl font-semibold mb-2 text-center">Seeds</h3>
+        <div className="flex flex-wrap justify-center gap-2">
           {seeds.map((seed) => (
             <div
               key={seed.label}
               className="flex items-center space-x-1 bg-gray-100 px-3 py-1 rounded-full"
             >
               {React.createElement(seed.icon, { className: `text-2xl ${seed.color}` })}
-              <span className="font-medium text-lg">{seed.label}</span>
+              <span className="font-medium text-lg text-center">{seed.label}</span>
             </div>
           ))}
         </div>
@@ -584,7 +584,7 @@ export default function Home() {
   };
 
   // ----- Inline Recording Functions (if needed) -----
-  const inlineMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaRecorderRefInline = useRef<MediaRecorder | null>(null);
   const inlineMediaStreamRef = useRef<MediaStream | null>(null);
   const startRecordingInline = async () => {
     try {
@@ -615,7 +615,7 @@ export default function Home() {
         }, 2000);
       };
       recorder.start();
-      inlineMediaRecorderRef.current = recorder;
+      mediaRecorderRefInline.current = recorder;
       setRecording(true);
     } catch (error) {
       console.error("Error accessing microphone:", error);
@@ -624,8 +624,8 @@ export default function Home() {
   };
 
   const stopRecordingInline = () => {
-    if (inlineMediaRecorderRef.current && recording) {
-      inlineMediaRecorderRef.current.stop();
+    if (mediaRecorderRefInline.current && recording) {
+      mediaRecorderRefInline.current.stop();
       inlineMediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       setRecording(false);
     }
@@ -810,7 +810,7 @@ export default function Home() {
       ? genres.reduce((max, g) => (g.score > max.score ? g : max), genres[0])
       : null;
 
-  const seeds: { label: string; icon: IconType; color: string }[] = [
+  const seedsData: { label: string; icon: IconType; color: string }[] = [
     { label: "Happy", icon: FaMusic, color: "text-yellow-500" },
     { label: "Sad", icon: FaMicrophoneSlash, color: "text-blue-500" },
     { label: "Excited", icon: FaDrum, color: "text-red-500" },
@@ -820,7 +820,7 @@ export default function Home() {
   const renderGenreAndSeeds = () => {
     return (
       <div className="flex flex-col gap-4 h-full">
-        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center">
+        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center transition-transform duration-500 hover:scale-105">
           <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
           {topGenre ? (
             <div className="flex items-center space-x-3">
@@ -833,16 +833,16 @@ export default function Home() {
             <span className="text-gray-500">No genre predicted</span>
           )}
         </div>
-        <div className="flex-1 bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-semibold mb-2">Seeds</h3>
-          <div className="flex flex-wrap gap-2">
-            {seeds.map((seed) => (
+        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
+          <h3 className="text-xl font-semibold mb-2 text-center">Seeds</h3>
+          <div className="flex flex-wrap justify-center gap-2">
+            {seedsData.map((seed) => (
               <div
                 key={seed.label}
                 className="flex items-center space-x-1 bg-gray-100 px-3 py-1 rounded-full"
               >
                 {React.createElement(seed.icon, { className: `text-2xl ${seed.color}` })}
-                <span className="font-medium text-lg">{seed.label}</span>
+                <span className="font-medium text-lg text-center">{seed.label}</span>
               </div>
             ))}
           </div>
