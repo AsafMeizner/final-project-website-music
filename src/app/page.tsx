@@ -772,7 +772,7 @@ export default function Home() {
     const data = prepareRechartsData();
     const averages = calculateAverages();
     return (
-      <div className="w-full bg-white rounded-lg shadow p-6 transition-transform duration-500 hover:scale-105">
+      <div className="w-full bg-white flex flex-col items-center rounded-lg shadow p-6 transition-transform duration-500 hover:scale-105">
         <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
@@ -820,7 +820,7 @@ export default function Home() {
   const renderGenreAndSeeds = () => {
     return (
       <div className="flex flex-col gap-4 h-full">
-        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center">
+        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
           <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
           {topGenre ? (
             <div className="flex items-center space-x-3">
@@ -839,7 +839,7 @@ export default function Home() {
             {seedsData.map((seed) => (
               <div
                 key={seed.label}
-                className="flex items-center space-x-1 bg-gray-100 px-3 py-1 rounded-full"
+                className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full"
               >
                 {React.createElement(seed.icon, { className: `text-2xl ${seed.color}` })}
                 <span className="font-medium text-lg text-center">{seed.label}</span>
