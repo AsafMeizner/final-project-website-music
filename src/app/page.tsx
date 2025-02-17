@@ -194,7 +194,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
       const constraints = { audio: selectedMic ? { deviceId: { exact: selectedMic } } : true };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
-
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
         ? "audio/webm;codecs=opus"
         : "audio/webm";
@@ -280,7 +279,7 @@ const RecordModal: React.FC<RecordModalProps> = ({
     }
   };
 
-  // Close modal when clicking on the background
+  // Close modal when clicking on background
   const handleBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -391,7 +390,7 @@ const seeds: GenreSeed[] = [
 
 const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col h-full">
       <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center">
         <h3 className="text-lg font-semibold mb-2">Predicted Genre</h3>
         {genre ? (
@@ -586,7 +585,7 @@ export default function Home() {
   };
 
   // ----- Inline Recording Functions (if needed) -----
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const inlineMediaRecorderRef = useRef<MediaRecorder | null>(null);
   const inlineMediaStreamRef = useRef<MediaStream | null>(null);
   const startRecordingInline = async () => {
     try {
@@ -617,7 +616,7 @@ export default function Home() {
         }, 2000);
       };
       recorder.start();
-      mediaRecorderRef.current = recorder;
+      inlineMediaRecorderRef.current = recorder;
       setRecording(true);
     } catch (error) {
       console.error("Error accessing microphone:", error);
@@ -626,8 +625,8 @@ export default function Home() {
   };
 
   const stopRecordingInline = () => {
-    if (mediaRecorderRef.current && recording) {
-      mediaRecorderRef.current.stop();
+    if (inlineMediaRecorderRef.current && recording) {
+      inlineMediaRecorderRef.current.stop();
       inlineMediaStreamRef.current?.getTracks().forEach((track) => track.stop());
       setRecording(false);
     }
@@ -684,7 +683,7 @@ export default function Home() {
             { name: "Folk", score: Math.random() },
           ])
             .sort((a, b) => b.score - a.score)
-            .slice(0, 1); // Only one predicted genre
+            .slice(0, 1);
           setGenres(randomGenres);
           setStage("finished");
         }, 1000);
@@ -821,7 +820,7 @@ export default function Home() {
 
   const renderGenreAndSeeds = () => {
     return (
-      <div className="flex flex-col gap-4 h-full">
+      <div className="flex flex-col h-full">
         <div className="flex-1 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center">
           <h3 className="text-lg font-semibold mb-2">Predicted Genre</h3>
           {topGenre ? (
@@ -973,7 +972,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* PROCESSING: Audio auto plays */}
+      {/* PROCESSING: Audio auto-plays */}
       {stage === "processing" && (
         <>
           {renderSpeakerWithWaves()}
@@ -989,7 +988,7 @@ export default function Home() {
         </>
       )}
 
-      {/* FINISHED: Audio does not auto play */}
+      {/* FINISHED: Audio does not auto-play */}
       {stage === "finished" && (
         <div className="flex flex-col md:flex-row gap-8 items-center w-full max-w-5xl">
           {renderLinearTimeline()}
