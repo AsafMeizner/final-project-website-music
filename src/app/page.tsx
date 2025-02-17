@@ -1,5 +1,4 @@
 // src/app/page.tsx
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -21,13 +20,12 @@ import {
   FaGuitar,
   FaDrum,
   FaMicrophone,
-  FaMicrophoneSlash,
 } from "react-icons/fa";
 import { GiViolin, GiSaxophone } from "react-icons/gi";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
 import { IoIosMusicalNote } from "react-icons/io";
 import { v4 as uuidv4 } from "uuid";
-import { useReactMediaRecorder } from "react-media-recorder";
+import { AudioRecorder } from "react-audio-voice-recorder";
 
 /** Represents a single 5s segment's sentiment data */
 interface SegmentSentiment {
@@ -53,7 +51,7 @@ interface SegmentSentiment {
 /** Genre prediction */
 interface GenrePrediction {
   name: string;
-  score: number;
+  score: number; // 0..1
 }
 
 /** Represents a sentiment with its rendering order and opacity */
@@ -165,25 +163,20 @@ export default function Home() {
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
 
-  // Use react-media-recorder hook for audio recording.
-  const {
-    status: recordingStatus,
-    startRecording: startRecordingFromHook,
-    stopRecording: stopRecordingFromHook,
-    mediaBlobUrl: hookMediaBlobUrl,
-  } = useReactMediaRecorder({ audio: true });
+  // State to toggle showing the recorder UI
+  const [showRecorder, setShowRecorder] = useState(false);
 
-  // When recording stops and we have a blob URL, simulate upload then processing.
-  useEffect(() => {
-    if (hookMediaBlobUrl && stage === "idle") {
-      setRecordedAudioUrl(hookMediaBlobUrl);
-      setStage("uploading");
-      setTimeout(() => {
-        setStage("processing");
-        startProcessing();
-      }, 2000);
-    }
-  }, [hookMediaBlobUrl, stage]);
+  // Called when the recording is complete.
+  const handleRecordingComplete = (blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    setRecordedAudioUrl(url);
+    setShowRecorder(false);
+    setStage("uploading");
+    setTimeout(() => {
+      setStage("processing");
+      startProcessing();
+    }, 2000);
+  };
 
   // ----- SEGMENT SENTIMENT DATA -----
   const totalSegments = 12;
@@ -232,7 +225,6 @@ export default function Home() {
   // ----- Update Shuffled Sentiments at Intervals -----
   useEffect(() => {
     if (stage !== "processing") return;
-
     const shuffleInterval = setInterval(() => {
       const shuffled = shuffleArray(sentiments);
       const opacities = shuffleArray([0.6, 0.5, 0.4]);
@@ -243,21 +235,17 @@ export default function Home() {
         }))
       );
     }, 2000);
-
     return () => clearInterval(shuffleInterval);
   }, [stage]);
 
   // ----- Animation Loop for Sentiment Values -----
   const rafId = useRef<number | null>(null);
-
   useEffect(() => {
     if (stage !== "processing") return;
-
     const animate = () => {
       setSegments((prevSegments) =>
         prevSegments.map((seg) => {
           if (seg.locked) return seg;
-
           const updateSentiment = (
             sentiment: "valence" | "arousal" | "dominance"
           ) => {
@@ -265,7 +253,6 @@ export default function Home() {
             const target = seg[sentiment].target;
             const speed = seg[sentiment].speed;
             let newValue = current;
-
             if (current < target) {
               newValue += speed;
               if (newValue >= target) newValue = target;
@@ -273,7 +260,6 @@ export default function Home() {
               newValue -= speed;
               if (newValue <= target) newValue = target;
             }
-
             if (newValue === target) {
               return {
                 value: newValue,
@@ -283,7 +269,6 @@ export default function Home() {
             }
             return { ...seg[sentiment], value: newValue };
           };
-
           return {
             ...seg,
             valence: updateSentiment("valence"),
@@ -292,12 +277,9 @@ export default function Home() {
           };
         })
       );
-
       rafId.current = requestAnimationFrame(animate);
     };
-
     rafId.current = requestAnimationFrame(animate);
-
     return () => {
       if (rafId.current !== null) cancelAnimationFrame(rafId.current);
     };
@@ -305,11 +287,8 @@ export default function Home() {
 
   // ----- Music Notes State -----
   const [musicNotes, setMusicNotes] = useState<MusicNoteData[]>([]);
-
-  // ----- Generate Music Notes Continuously -----
   useEffect(() => {
     if (stage !== "processing") return;
-
     const noteInterval = setInterval(() => {
       const type = shuffleArray(noteTypes)[0];
       const color = shuffleArray([
@@ -318,41 +297,28 @@ export default function Home() {
         "text-green-500",
       ])[0];
       const angle = Math.random() * 360;
-
-      const newNote: MusicNoteData = {
-        id: uuidv4(),
-        angle,
-        color,
-        type,
-      };
-
+      const newNote: MusicNoteData = { id: uuidv4(), angle, color, type };
       setMusicNotes((prev) => [...prev, newNote]);
-
       setTimeout(() => {
         setMusicNotes((prev) => prev.filter((note) => note.id !== newNote.id));
       }, 3000);
     }, 500);
-
     return () => clearInterval(noteInterval);
   }, [stage]);
 
   // ----- Handle File Upload -----
   const [error, setError] = useState<string | null>(null);
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-
     if (!file.type.startsWith("audio/")) {
       setError("Please upload a valid audio file.");
       return;
     }
-
     setError(null);
     const fileUrl = URL.createObjectURL(file);
     setUploadedAudioUrl(fileUrl);
     setStage("uploading");
-
     setTimeout(() => {
       setStage("processing");
       startProcessing();
@@ -377,7 +343,6 @@ export default function Home() {
         )
       );
       currentIdx++;
-
       if (currentIdx === totalSegments) {
         clearInterval(intervalId);
         setTimeout(() => {
@@ -409,21 +374,17 @@ export default function Home() {
   const generateSmoothPath = (points: { x: number; y: number }[]): string => {
     if (points.length < 2) return "";
     let path = `M ${points[0].x} ${points[0].y}`;
-
     for (let i = 0; i < points.length; i++) {
       const p0 = points[i === 0 ? points.length - 1 : i - 1];
       const p1 = points[i];
       const p2 = points[(i + 1) % points.length];
       const p3 = points[(i + 2) % points.length];
-
       const cp1x = p1.x + (p2.x - p0.x) * 0.2;
       const cp1y = p1.y + (p2.y - p0.y) * 0.2;
       const cp2x = p2.x - (p3.x - p1.x) * 0.2;
       const cp2y = p2.y - (p3.y - p1.y) * 0.2;
-
       path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
     }
-
     path += " Z";
     return path;
   };
@@ -441,7 +402,6 @@ export default function Home() {
             const y = r * Math.sin(angle);
             return { x, y };
           });
-
           const path = generateSmoothPath(points);
           const rgb =
             sentiment === "valence"
@@ -449,14 +409,12 @@ export default function Home() {
               : sentiment === "arousal"
               ? "130, 202, 157"
               : "255, 198, 88";
-
           const strokeColor =
             sentiment === "valence"
               ? "#8884d8"
               : sentiment === "arousal"
               ? "#82ca9d"
               : "#ffc658";
-
           return (
             <path
               key={sentiment}
@@ -493,7 +451,6 @@ export default function Home() {
       },
       { valence: 0, arousal: 0, dominance: 0 }
     );
-
     return {
       valence: parseFloat((sum.valence / total).toFixed(2)),
       arousal: parseFloat((sum.arousal / total).toFixed(2)),
@@ -504,10 +461,8 @@ export default function Home() {
   // ----- Render Linear Timeline with Recharts -----
   const renderLinearTimeline = () => {
     if (stage !== "finished") return null;
-
     const data = prepareRechartsData();
     const averages = calculateAverages();
-
     return (
       <div className="w-full max-w-4xl bg-white rounded-lg shadow p-6 transition-all duration-500 ease-in-out hover:scale-105">
         <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
@@ -544,7 +499,6 @@ export default function Home() {
   // ----- Render Linear Timeline and Genres -----
   const renderLinearTimelineAndGenres = () => {
     if (stage !== "finished") return null;
-
     return (
       <div className="flex flex-col md:flex-row w-full max-w-5xl gap-8 transition-all duration-500 ease-in-out">
         <div className="md:w-1/3 bg-white rounded-lg shadow p-6 transition-transform transform duration-500 ease-in-out hover:scale-105">
@@ -601,10 +555,29 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 ease-in-out relative">
       <h1 className="text-3xl font-bold">Music Sentiment & Genre Analyzer</h1>
 
-      {/* IDLE: Upload & Record Buttons */}
+      {/* Audio Playback Mute Toggle */}
+      {(stage === "processing" || stage === "finished") &&
+        (recordedAudioUrl || uploadedAudioUrl) && (
+          <div className="fixed top-4 left-4 z-50">
+            <button
+              onClick={() => setIsAudioMuted((prev) => !prev)}
+              className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
+              aria-label="Toggle Audio Playback Mute"
+            >
+              {isAudioMuted ? (
+                <MdMusicOff className="h-6 w-6" />
+              ) : (
+                <MdMusicNote className="h-6 w-6" />
+              )}
+            </button>
+          </div>
+        )}
+
+      {/* IDLE: Upload & Record Options */}
       {stage === "idle" && (
         <div className="flex flex-col items-center space-y-4 transition-all duration-500 ease-in-out">
           <div className="flex space-x-4">
+            {/* Upload Audio */}
             <label
               htmlFor="upload-audio"
               className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
@@ -629,29 +602,30 @@ export default function Home() {
               className="hidden"
             />
 
+            {/* Record Audio */}
             <button
-              onClick={
-                recordingStatus === "recording"
-                  ? stopRecordingFromHook
-                  : startRecordingFromHook
-              }
-              className={`bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-red-300 ${
-                recordingStatus === "recording" ? "animate-pulse" : ""
-              }`}
-              aria-label={
-                recordingStatus === "recording" ? "Stop Recording" : "Record Audio"
-              }
+              onClick={() => setShowRecorder(true)}
+              className="bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-red-300"
+              aria-label="Record Audio"
             >
-              {recordingStatus === "recording" ? (
-                <FaMicrophoneSlash className="h-6 w-6" />
-              ) : (
-                <FaMicrophone className="h-6 w-6" />
-              )}
-              <span>
-                {recordingStatus === "recording" ? "Stop Recording" : "Record Audio"}
-              </span>
+              <FaMicrophone className="h-6 w-6" />
+              <span>Record Audio</span>
             </button>
           </div>
+          {/* Optionally show the AudioRecorder component */}
+          {showRecorder && (
+            <div className="mt-4">
+              <AudioRecorder
+                onRecordingComplete={handleRecordingComplete}
+                audioTrackConstraints={{
+                  noiseSuppression: true,
+                  echoCancellation: true,
+                }}
+                downloadOnSavePress={true}
+                downloadFileExtension="webm"
+              />
+            </div>
+          )}
           <Image src="/speaker.svg" alt="Speaker" width={120} height={120} className="opacity-50" />
           {error && <div className="mt-4 text-red-500">{error}</div>}
         </div>
@@ -709,7 +683,6 @@ export default function Home() {
         .animate-rotate-slow {
           animation: rotate-slow 20s linear infinite;
         }
-
         @keyframes ping-slow {
           0% {
             transform: scale(1);
@@ -723,7 +696,6 @@ export default function Home() {
         .animate-ping-slow {
           animation: ping-slow 4s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
-
         @keyframes pulse-scale {
           0% {
             transform: scale(1);
