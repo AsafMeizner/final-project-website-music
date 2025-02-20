@@ -24,7 +24,7 @@ import {
 } from "react-icons/fa";
 import { GiViolin, GiSaxophone } from "react-icons/gi";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
-import { IoIosMusicalNote } from "react-icons/io";
+import MusicPlayer from "@/app/components/musicPlayer";
 import { v4 as uuidv4 } from "uuid";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -442,6 +442,10 @@ export default function Home() {
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [selectedMic, setSelectedMic] = useState<string | null>(null);
 
+  // Metadata states for song title and artist
+  const [songName, setSongName] = useState("Unknown");
+  const [artistName, setArtistName] = useState("Unknown");
+
   useEffect(() => {
     navigator.mediaDevices
       .enumerateDevices()
@@ -585,6 +589,8 @@ export default function Home() {
     setError(null);
     const fileUrl = URL.createObjectURL(file);
     setUploadedAudioUrl(fileUrl);
+    setSongName(file.name);
+    setArtistName("unknown");
     setStage("uploading");
     setTimeout(() => {
       setStage("processing");
@@ -920,6 +926,20 @@ export default function Home() {
     setGenres([]);
   };
 
+  const renderMusicPlayer = () => {
+    const audioUrl = recordedAudioUrl || uploadedAudioUrl;
+    if (!audioUrl) return null;
+    return (
+      <MusicPlayer
+        audioUrl={audioUrl}
+        songName={songName}
+        artistName={artistName}
+        autoPlay={stage === "processing"}
+        isMuted={isAudioMuted}
+      />
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 relative">
       {/* top menu */}
@@ -1060,31 +1080,17 @@ export default function Home() {
 
       {/* PROCESSING: Audio auto-plays */}
       {stage === "processing" && (
-        <>
+        <div className="flex flex-col items-center">
           {renderSpeakerWithWaves()}
-          {(recordedAudioUrl || uploadedAudioUrl) && (
-            <audio
-              src={recordedAudioUrl || uploadedAudioUrl || ""}
-              autoPlay
-              controls
-              muted={isAudioMuted}
-              className="mt-4"
-            />
-          )}
-        </>
+          {renderMusicPlayer()}
+        </div>
       )}
 
       {/* FINISHED: Audio does NOT auto-play */}
       {stage === "finished" && (
         <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto items-center">
           {renderSpeakerWithWaves()}
-          {(recordedAudioUrl || uploadedAudioUrl) && (
-            <audio
-              src={recordedAudioUrl || uploadedAudioUrl || ""}
-              controls
-              muted={isAudioMuted}
-            />
-          )}
+          {renderMusicPlayer()}
           <div className="flex flex-col md:flex-row gap-8 items-stretch">
             <div className="flex flex-col gap-8 md:w-1/3 items-center">
               {renderGenreAndSeeds()}
