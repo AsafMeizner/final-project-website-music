@@ -328,8 +328,8 @@ const RecordModal: React.FC<RecordModalProps> = ({
             <button
               onClick={isRecording ? stopRecording : startRecording}
               className={`w-full px-4 py-2 rounded-full transition ${isRecording
-                  ? "bg-red-600 hover:bg-red-500 animate-pulse"
-                  : "bg-green-600 hover:bg-green-500"
+                ? "bg-red-600 hover:bg-red-500 animate-pulse"
+                : "bg-green-600 hover:bg-green-500"
                 } text-white`}
             >
               {isRecording ? "Stop Recording" : "Start Recording"}
@@ -891,6 +891,28 @@ export default function Home() {
     );
   };
 
+  const [showMobileNavbar, setShowMobileNavbar] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Only apply the hide-on-scroll behavior on mobile (viewport width < 768px)
+      if (window.innerWidth < 768) {
+        if (window.scrollY > lastScrollY.current) {
+          // Scrolling down - hide the navbar
+          setShowMobileNavbar(false);
+        } else {
+          // Scrolling up - show the navbar
+          setShowMobileNavbar(true);
+        }
+        lastScrollY.current = window.scrollY;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const resetApp = () => {
     setStage("idle");
     setRecordedAudioUrl(null);
@@ -900,20 +922,19 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 relative">
-      <h1 className="text-3xl font-bold mb-8">Music Sentiment & Genre Analyzer</h1>
-
-      {/* Mute Toggle for Audio Playback */}
+      {/* top menu */}
       <div
-        className="fixed top-4 left-4 z-50 bg-gray-800 w-fit px-1.25 py-1.25 shadow-box-up rounded-2xl dark:bg-box-dark dark:shadow-box-dark-out"
+        className={`fixed transition-transform duration-300 z-50 
+          ${showMobileNavbar ? "translate-y-0" : "-translate-y-full"} 
+          top-0 left-0 w-full bg-gray-800 shadow-box-up dark:bg-box-dark dark:shadow-box-dark-out
+          md:top-4 md:left-4 md:w-fit md:px-[0.3125rem] md:py-[0.3125rem] md:rounded-2xl`}
       >
-        <div
-          className="dark:shadow-buttons-box-dark rounded-2xl w-full px-1.5 py-1.5 md:px-3 md:py-3"
-        >
+        <div className="w-full flex justify-center dark:shadow-buttons-box-dark md:justify-start md:px-3 md:py-1">
           {/* Home Button: Reset to allow new upload/record */}
           <button
             title="Home - Upload/Record New"
             onClick={resetApp}
-            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -929,7 +950,7 @@ export default function Home() {
           <button
             title={isAudioMuted ? "Unmute Music" : "Mute Music"}
             onClick={toggleAudioMute}
-            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
           >
             {isAudioMuted ? (
               <MdMusicOff className="h-6 w-6" />
@@ -941,8 +962,10 @@ export default function Home() {
           {/* GitHub Repo Button */}
           <button
             title="GitHub Repo"
-            onClick={() => window.open('https://github.com/yourusername/yourrepo', '_blank')}
-            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+            onClick={() =>
+              window.open("https://github.com/yourusername/yourrepo", "_blank")
+            }
+            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -957,23 +980,17 @@ export default function Home() {
           {/* Product Paper Button */}
           <button
             title="Open Project Paper"
-            onClick={() => window.open('https://github.com/yourusername/yourrepo', '_blank')}
-            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+            onClick={() =>
+              window.open("https://github.com/yourusername/yourrepo", "_blank")
+            }
+            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
           >
             <FaBook className="h-5 w-6" />
           </button>
         </div>
       </div>
 
-      <div className="button fixed top-6 right-12 scale-125 rounded-lg overflow-hidden">
-        <div className="box">A</div>
-        <div className="box"> </div>
-        <div className="box">S</div>
-        <div className="box"> </div>
-        <div className="box">A</div>
-        <div className="box"> </div>
-        <div className="box">F</div>
-      </div>
+      <h1 className="text-3xl font-bold mb-8">Music Sentiment & Genre Analyzer</h1>
 
       {/* Mute Toggle for Mic (when recording inline) */}
       {recording && (
@@ -1141,6 +1158,16 @@ export default function Home() {
           animation: pulse-scale 2s ease-in-out infinite;
         }
       `}</style>
+
+      <div className="button mt-4 relative md:fixed md:mt-0 md:top-6 md:right-12 scale-125 rounded-lg overflow-hidden">
+        <div className="box">A</div>
+        <div className="box"> </div>
+        <div className="box">S</div>
+        <div className="box"> </div>
+        <div className="box">A</div>
+        <div className="box"> </div>
+        <div className="box">F</div>
+      </div>
     </div>
   );
 }
