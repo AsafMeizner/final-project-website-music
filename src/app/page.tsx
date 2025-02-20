@@ -983,7 +983,7 @@ export default function Home() {
           <button
             title="GitHub Repo"
             onClick={() =>
-              window.open("https://github.com/yourusername/yourrepo", "_blank")
+              window.open("https://github.com/AsafMeizner/muse-music-sentiment-detection", "_blank")
             }
             className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
           >
@@ -1001,7 +1001,7 @@ export default function Home() {
           <button
             title="Open Project Paper"
             onClick={() =>
-              window.open("https://github.com/yourusername/yourrepo", "_blank")
+              window.open("https://github.com/AsafMeizner/muse-music-sentiment-detection", "_blank")
             }
             className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
           >
