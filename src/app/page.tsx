@@ -20,6 +20,7 @@ import {
   FaDrum,
   FaMicrophone,
   FaMicrophoneSlash,
+  FaBook
 } from "react-icons/fa";
 import { GiViolin, GiSaxophone } from "react-icons/gi";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
@@ -326,11 +327,10 @@ const RecordModal: React.FC<RecordModalProps> = ({
           <div className="flex flex-col items-center space-y-3">
             <button
               onClick={isRecording ? stopRecording : startRecording}
-              className={`w-full px-4 py-2 rounded-full transition ${
-                isRecording
+              className={`w-full px-4 py-2 rounded-full transition ${isRecording
                   ? "bg-red-600 hover:bg-red-500 animate-pulse"
                   : "bg-green-600 hover:bg-green-500"
-              } text-white`}
+                } text-white`}
             >
               {isRecording ? "Stop Recording" : "Start Recording"}
             </button>
@@ -662,12 +662,12 @@ export default function Home() {
         prev.map((seg, i) =>
           i === currentIdx
             ? {
-                ...seg,
-                locked: true,
-                valence: { ...seg.valence, target: seg.valence.value, speed: 0 },
-                arousal: { ...seg.arousal, target: seg.arousal.value, speed: 0 },
-                dominance: { ...seg.dominance, target: seg.dominance.value, speed: 0 },
-              }
+              ...seg,
+              locked: true,
+              valence: { ...seg.valence, target: seg.valence.value, speed: 0 },
+              arousal: { ...seg.arousal, target: seg.arousal.value, speed: 0 },
+              dominance: { ...seg.dominance, target: seg.dominance.value, speed: 0 },
+            }
             : seg
         )
       );
@@ -871,9 +871,8 @@ export default function Home() {
             alt="Speaker"
             width={120}
             height={120}
-            className={`transition-transform duration-500 ${
-              stage === "processing" ? "animate-pulse-scale animate-rotate-slow" : ""
-            }`}
+            className={`transition-transform duration-500 ${stage === "processing" ? "animate-pulse-scale animate-rotate-slow" : ""
+              }`}
           />
         </div>
         {musicNotes.map((note) => (
@@ -892,27 +891,89 @@ export default function Home() {
     );
   };
 
+  const resetApp = () => {
+    setStage("idle");
+    setRecordedAudioUrl(null);
+    setUploadedAudioUrl(null);
+    setGenres([]);
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 relative">
       <h1 className="text-3xl font-bold mb-8">Music Sentiment & Genre Analyzer</h1>
 
       {/* Mute Toggle for Audio Playback */}
-      {(stage === "processing" || stage === "finished") &&
-        (recordedAudioUrl || uploadedAudioUrl) && (
-          <div className="fixed top-4 left-4 z-50">
-            <button
-              onClick={toggleAudioMute}
-              className="bg-gray-800 text-white p-2 rounded-full focus:outline-none"
-              aria-label="Toggle Audio Playback Mute"
+      <div
+        className="fixed top-4 left-4 z-50 bg-gray-800 w-fit px-1.25 py-1.25 shadow-box-up rounded-2xl dark:bg-box-dark dark:shadow-box-dark-out"
+      >
+        <div
+          className="dark:shadow-buttons-box-dark rounded-2xl w-full px-1.5 py-1.5 md:px-3 md:py-3"
+        >
+          {/* Home Button: Reset to allow new upload/record */}
+          <button
+            title="Home - Upload/Record New"
+            onClick={resetApp}
+            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
             >
-              {isAudioMuted ? (
-                <MdMusicOff className="h-6 w-6" />
-              ) : (
-                <MdMusicNote className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-        )}
+              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+            </svg>
+          </button>
+
+          {/* Mute/Unmute Button */}
+          <button
+            title={isAudioMuted ? "Unmute Music" : "Mute Music"}
+            onClick={toggleAudioMute}
+            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+          >
+            {isAudioMuted ? (
+              <MdMusicOff className="h-6 w-6" />
+            ) : (
+              <MdMusicNote className="h-6 w-6" />
+            )}
+          </button>
+
+          {/* GitHub Repo Button */}
+          <button
+            title="GitHub Repo"
+            onClick={() => window.open('https://github.com/yourusername/yourrepo', '_blank')}
+            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M12 0C5.37 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.725-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.745.083-.73.083-.73 1.205.085 1.84 1.237 1.84 1.237 1.07 1.835 2.807 1.305 3.492.997.108-.775.418-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.47-2.38 1.235-3.22-.124-.303-.535-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.49 11.49 0 013.003-.404c1.02.005 2.045.137 3.003.404 2.29-1.552 3.296-1.23 3.296-1.23.654 1.653.243 2.873.12 3.176.77.84 1.233 1.91 1.233 3.22 0 4.61-2.803 5.625-5.475 5.922.43.37.823 1.102.823 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 21.797 24 17.303 24 12 24 5.373 18.627 0 12 0z" />
+            </svg>
+          </button>
+
+          {/* Product Paper Button */}
+          <button
+            title="Open Project Paper"
+            onClick={() => window.open('https://github.com/yourusername/yourrepo', '_blank')}
+            className="text-light-blue-light hover:text-gray-100 dark:text-gray-400 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
+          >
+            <FaBook className="h-5 w-6" />
+          </button>
+        </div>
+      </div>
+
+      <div className="button fixed top-6 right-12 scale-125 rounded-lg overflow-hidden">
+        <div className="box">A</div>
+        <div className="box"> </div>
+        <div className="box">S</div>
+        <div className="box"> </div>
+        <div className="box">A</div>
+        <div className="box"> </div>
+        <div className="box">F</div>
+      </div>
 
       {/* Mute Toggle for Mic (when recording inline) */}
       {recording && (
