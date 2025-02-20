@@ -935,7 +935,6 @@ export default function Home() {
         songName={songName}
         artistName={artistName}
         autoPlay={stage === "processing"}
-        isMuted={isAudioMuted}
       />
     );
   };

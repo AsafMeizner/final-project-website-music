@@ -1,11 +1,10 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 
 interface MusicPlayerProps {
   audioUrl: string;
   songName: string;
   artistName: string;
   autoPlay?: boolean;
-  isMuted?: boolean;
 }
 
 const MusicPlayer: React.FC<MusicPlayerProps> = ({
@@ -13,13 +12,73 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   songName,
   artistName,
   autoPlay = false,
-  isMuted = false,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(autoPlay);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
+  // --- Random Disc Design Setup ---
+
+  // Define several design variants – each is an array of five path strings.
+  const designVariants = useMemo(() => {
+    return [
+      // Variant 1: (Original-ish curves)
+      [
+        "M0 128 Q32 64 64 128 T128 128",
+        "M0 128 Q32 48 64 128 T128 128",
+        "M0 128 Q32 32 64 128 T128 128",
+        "M0 128 Q16 64 32 128 T64 128",
+        "M64 128 Q80 64 96 128 T128 128",
+      ],
+      // Variant 2: Cubic Bezier curves for a more dramatic look
+      [
+        "M0 128 C32 0, 96 0, 128 128",
+        "M0 128 C32 96, 96 96, 128 128",
+        "M0 128 C32 112, 96 112, 128 128",
+        "M0 128 C32 80, 96 80, 128 128",
+        "M0 128 C32 64, 96 64, 128 128",
+      ],
+      // Variant 3: Arcs and straight line for a different aesthetic
+      [
+        "M64 128 A64 64 0 0 1 0 64",
+        "M64 128 A64 64 0 0 0 128 64",
+        "M64 0 A64 64 0 0 1 128 64",
+        "M64 0 A64 64 0 0 0 0 64",
+        "M0 64 L128 64",
+      ],
+    ];
+  }, []);
+
+  // Randomly select one design variant for this run.
+  const selectedVariant = useMemo(() => {
+    const index = Math.floor(Math.random() * designVariants.length);
+    return designVariants[index];
+  }, [designVariants]);
+
+  // Curated palette of colors.
+  const randomPathColors = useMemo(() => {
+    const palette = [
+      "#FFD700", // Gold
+      "#800080", // Purple
+      "#000000", // Black
+      "#FF0000", // Red
+      "#0000FF", // Blue
+      "#008000", // Green
+      "#FF8C00", // DarkOrange
+      "#FF69B4", // HotPink
+      "#00BFFF", // DeepSkyBlue
+      "#4B0082", // Indigo
+    ];
+    const available = [...palette];
+    for (let i = available.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [available[i], available[j]] = [available[j], available[i]];
+    }
+    return available.slice(0, 5);
+  }, []);
+
+  // --- Audio Controls ---
   const togglePlayPause = () => {
     if (!audioRef.current) return;
     if (isPlaying) {
@@ -57,7 +116,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // Freeze the spin when paused (without resetting orientation)
+  // Freeze spin (large & small discs) when paused without resetting orientation.
   const spinStyle = { animationPlayState: isPlaying ? "running" : "paused" };
 
   return (
@@ -68,7 +127,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           width={128}
           height={128}
           viewBox="0 0 128 128"
-          className="duration-500 border-4 rounded-full shadow-md border-zinc-400 border-spacing-5 animate-[spin_3s_linear_infinite] transition-all"
+          className="duration-500 border-4 rounded-full shadow-md border-zinc-400 border-spacing-5 animate-[spin_5s_linear_infinite] transition-all"
           style={spinStyle}
         >
           <svg>
@@ -81,11 +140,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             <circle cx={120} cy={50} r={2} fill="white" />
             <circle cx={90} cy={30} r={10} fill="white" fillOpacity="0.5" />
             <circle cx={90} cy={30} r={8} fill="white" />
-            <path d="M0 128 Q32 64 64 128 T128 128" fill="purple" stroke="black" strokeWidth={1} />
-            <path d="M0 128 Q32 48 64 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
-            <path d="M0 128 Q32 32 64 128 T128 128" fill="rebeccapurple" stroke="black" strokeWidth={1} />
-            <path d="M0 128 Q16 64 32 128 T64 128" fill="purple" stroke="black" strokeWidth={1} />
-            <path d="M64 128 Q80 64 96 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
+            {selectedVariant.map((d, i) => (
+              <path key={i} d={d} fill={randomPathColors[i]} stroke="black" strokeWidth={1} />
+            ))}
           </svg>
         </svg>
         <div className="absolute z-10 w-8 h-8 bg-white border-4 rounded-full shadow-sm border-zinc-400 top-12 left-12" />
@@ -100,7 +157,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
               width={96}
               height={96}
               viewBox="0 0 128 128"
-              className="duration-500 border-4 rounded-full shadow-md border-zinc-400 border-spacing-5 animate-[spin_3s_linear_infinite]"
+              className="duration-500 border-4 rounded-full shadow-md border-zinc-400 border-spacing-5 animate-[spin_5s_linear_infinite]"
               style={spinStyle}
             >
               <svg>
@@ -113,11 +170,9 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
                 <circle cx={120} cy={50} r={2} fill="white" />
                 <circle cx={90} cy={30} r={10} fill="white" fillOpacity="0.5" />
                 <circle cx={90} cy={30} r={8} fill="white" />
-                <path d="M0 128 Q32 64 64 128 T128 128" fill="purple" stroke="black" strokeWidth={1} />
-                <path d="M0 128 Q32 48 64 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
-                <path d="M0 128 Q32 32 64 128 T128 128" fill="rebeccapurple" stroke="black" strokeWidth={1} />
-                <path d="M0 128 Q16 64 32 128 T64 128" fill="purple" stroke="black" strokeWidth={1} />
-                <path d="M64 128 Q80 64 96 128 T128 128" fill="mediumpurple" stroke="black" strokeWidth={1} />
+                {selectedVariant.map((d, i) => (
+                  <path key={i} d={d} fill={randomPathColors[i]} stroke="black" strokeWidth={1} />
+                ))}
               </svg>
             </svg>
             <div className="absolute z-10 w-6 h-6 bg-white border-4 rounded-full shadow-sm border-zinc-400 top-9 left-9" />
@@ -149,6 +204,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             {formatTime(duration)}
           </span>
         </div>
+        {/* Control Buttons: Only Skip Back 10 sec, Play/Pause, Skip Forward 10 sec */}
         <div className="flex flex-row items-center justify-center flex-grow mx-3 space-x-5">
           <div
             className="flex items-center justify-center w-12 h-full cursor-pointer"
@@ -239,7 +295,7 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
           </div>
         </div>
       </div>
-      <audio ref={audioRef} src={audioUrl} muted={isMuted} className="hidden" />
+      <audio ref={audioRef} src={audioUrl} className="hidden" />
     </div>
   );
 };
