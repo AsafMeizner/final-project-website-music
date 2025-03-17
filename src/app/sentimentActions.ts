@@ -3,7 +3,7 @@
 import axios from 'axios';
 
 const apiUrlGlobal = 'https://musicserver.meizner.live/analyze';
-const apiUrlLocal = 'http://127.0.0.1:8000/analyze';
+const apiUrlLocal = 'http://localhost:8000/analyze';
 const apiUrl = process.env.NODE_ENV === 'production' ? apiUrlGlobal : apiUrlLocal;
 
 export async function analyzeAudio(formData: FormData): Promise<{
