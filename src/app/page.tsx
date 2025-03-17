@@ -20,23 +20,25 @@ import {
   FaDrum,
   FaMicrophone,
   FaMicrophoneSlash,
-  FaBook
+  FaBook,
 } from "react-icons/fa";
 import { GiViolin, GiSaxophone } from "react-icons/gi";
 import { MdMusicNote, MdMusicOff } from "react-icons/md";
 import MusicPlayer from "@/app/components/musicPlayer";
 import { v4 as uuidv4 } from "uuid";
 import { motion, AnimatePresence } from "framer-motion";
+import { analyzeAudio } from "@/app/sentimentActions"; // Server action for audio analysis
 
 /* ============================
    Data Interfaces & Helpers
 ============================ */
-interface SegmentSentiment {
+
+// The server will return each segment as a simple number (not animated values)
+interface ServerSegment {
   timeSec: number;
-  valence: { value: number; target: number; speed: number };
-  arousal: { value: number; target: number; speed: number };
-  dominance: { value: number; target: number; speed: number };
-  locked: boolean;
+  valence: number;
+  arousal: number;
+  dominance: number;
 }
 
 interface GenrePrediction {
@@ -213,7 +215,6 @@ const RecordModal: React.FC<RecordModalProps> = ({
         stopAudioLevelMonitor();
       };
 
-      // Set up analyser for audio level meter
       const audioContext = new AudioContext();
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
@@ -328,8 +329,8 @@ const RecordModal: React.FC<RecordModalProps> = ({
             <button
               onClick={isRecording ? stopRecording : startRecording}
               className={`w-full px-4 py-2 rounded-full transition ${isRecording
-                ? "bg-red-600 hover:bg-red-500 animate-pulse"
-                : "bg-green-600 hover:bg-green-500"
+                  ? "bg-red-600 hover:bg-red-500 animate-pulse"
+                  : "bg-green-600 hover:bg-green-500"
                 } text-white`}
             >
               {isRecording ? "Stop Recording" : "Start Recording"}
@@ -387,17 +388,17 @@ const seeds: GenreSeed[] = [
   { label: "Calm", icon: FaHeadphones, color: "text-green-500" },
 ];
 
-const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
+const GenreAndSeeds: React.FC<{ genre?: string }> = ({ genre }) => {
   return (
     <div className="flex flex-col gap-4 h-full">
-      <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col justify-center items-center transition-transform duration-500 hover:scale-105">
+      <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
         <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
         {genre ? (
           <div className="flex items-center space-x-3">
-            {React.createElement(genreIconMap[genre.name] || FaMusic, {
+            {React.createElement(genreIconMap[genre] || FaMusic, {
               className: "text-3xl text-indigo-600",
             })}
-            <span className="text-2xl font-medium">{genre.name}</span>
+            <span className="text-2xl font-medium">{genre}</span>
           </div>
         ) : (
           <span className="text-gray-500">No genre predicted</span>
@@ -425,10 +426,10 @@ const GenreAndSeeds: React.FC<{ genre?: GenrePrediction }> = ({ genre }) => {
    Main Page Component
 ============================ */
 export default function Home() {
-  // ----- STAGE MANAGEMENT -----
+  // ----- Stage Management -----
   const [stage, setStage] = useState<"idle" | "uploading" | "processing" | "finished">("idle");
 
-  // ----- AUDIO INPUT STATE -----
+  // ----- Audio Input State -----
   const [recording, setRecording] = useState(false);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
@@ -445,6 +446,11 @@ export default function Home() {
   // Metadata states for song title and artist
   const [songName, setSongName] = useState("Unknown");
   const [artistName, setArtistName] = useState("Unknown");
+
+  // ----- Server-provided Sentiment Data & Animation -----
+  const [serverSegments, setServerSegments] = useState<ServerSegment[]>([]);
+  const [animatedSegments, setAnimatedSegments] = useState<ServerSegment[]>([]);
+  const [predictedGenre, setPredictedGenre] = useState<string | null>(null);
 
   useEffect(() => {
     navigator.mediaDevices
@@ -468,22 +474,7 @@ export default function Home() {
     }
   }, [stage]);
 
-  // ----- SEGMENT SENTIMENT DATA -----
-  const totalSegments = 12;
-  const [segments, setSegments] = useState<SegmentSentiment[]>(() =>
-    Array.from({ length: totalSegments }, (_, i) => ({
-      timeSec: i * 5,
-      valence: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
-      arousal: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
-      dominance: { value: Math.random(), target: Math.random(), speed: Math.random() * 0.005 + 0.002 },
-      locked: false,
-    }))
-  );
-
-  // ----- GENRE DATA -----
-  const [genres, setGenres] = useState<GenrePrediction[]>([]);
-
-  // ----- Shuffled Sentiments State -----
+  // ----- Sentiment Shuffling for Visual Effect -----
   const sentiments: ("valence" | "arousal" | "dominance")[] = [
     "valence",
     "arousal",
@@ -515,70 +506,42 @@ export default function Home() {
     return () => clearInterval(shuffleInterval);
   }, [stage]);
 
-  // ----- Animation Loop for Sentiment Values -----
-  const rafId = useRef<number | null>(null);
-  useEffect(() => {
-    if (stage !== "processing") return;
-    const animate = () => {
-      setSegments((prevSegments) =>
-        prevSegments.map((seg) => {
-          if (seg.locked) return seg;
-          const updateSentiment = (sentiment: "valence" | "arousal" | "dominance") => {
-            const current = seg[sentiment].value;
-            const target = seg[sentiment].target;
-            const speed = seg[sentiment].speed;
-            let newValue = current;
-            if (current < target) {
-              newValue += speed;
-              if (newValue >= target) newValue = target;
-            } else if (current > target) {
-              newValue -= speed;
-              if (newValue <= target) newValue = target;
-            }
-            if (newValue === target) {
-              return {
-                value: newValue,
-                target: Math.random(),
-                speed: Math.random() * 0.005 + 0.002,
-              };
-            }
-            return { ...seg[sentiment], value: newValue };
-          };
-          return {
-            ...seg,
-            valence: updateSentiment("valence"),
-            arousal: updateSentiment("arousal"),
-            dominance: updateSentiment("dominance"),
-          };
-        })
-      );
-      rafId.current = requestAnimationFrame(animate);
-    };
-    rafId.current = requestAnimationFrame(animate);
-    return () => {
-      if (rafId.current !== null) cancelAnimationFrame(rafId.current);
-    };
-  }, [stage]);
+  // ----- Animation Function (2 seconds per segment) -----
+  const animateSegments = (segments: ServerSegment[]) => {
+    let currentIdx = 0;
+    const intervalId = setInterval(() => {
+      setAnimatedSegments((prev) => [...prev, segments[currentIdx]]);
+      currentIdx++;
+      if (currentIdx >= segments.length) {
+        clearInterval(intervalId);
+        setStage("finished");
+      }
+    }, 2000);
+  };
 
-  // ----- Music Notes State -----
-  const [musicNotes, setMusicNotes] = useState<MusicNoteData[]>([]);
-  useEffect(() => {
-    if (stage !== "processing") return;
-    const noteInterval = setInterval(() => {
-      const type = shuffleArray(noteTypes)[0];
-      const color = shuffleArray(["text-red-500", "text-blue-500", "text-green-500"])[0];
-      const angle = Math.random() * 360;
-      const newNote: MusicNoteData = { id: uuidv4(), angle, color, type };
-      setMusicNotes((prev) => [...prev, newNote]);
-      setTimeout(() => {
-        setMusicNotes((prev) => prev.filter((note) => note.id !== newNote.id));
-      }, 3000);
-    }, 500);
-    return () => clearInterval(noteInterval);
-  }, [stage]);
-
-  // ----- Handle File Upload -----
+  // ----- Handle File Upload & Process Audio -----
   const [error, setError] = useState<string | null>(null);
+
+  const processAudio = async (audioBlob: Blob) => {
+    try {
+      const formData = new FormData();
+      formData.append("audio", audioBlob);
+      // Call the server to analyze the audio file
+      const { segments, genre } = await analyzeAudio(formData);
+      setServerSegments(segments);
+      setPredictedGenre(genre);
+      setStage("uploading");
+      // After a short delay, start animating the segments
+      setTimeout(() => {
+        setStage("processing");
+        animateSegments(segments);
+      }, 2000);
+    } catch (error) {
+      console.error("Error processing audio:", error);
+      setError("There was an error processing your audio. Please try again.");
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -587,18 +550,13 @@ export default function Home() {
       return;
     }
     setError(null);
-    const fileUrl = URL.createObjectURL(file);
-    setUploadedAudioUrl(fileUrl);
     setSongName(file.name);
-    setArtistName("unknown");
-    setStage("uploading");
-    setTimeout(() => {
-      setStage("processing");
-      startProcessing();
-    }, 2000);
+    setArtistName("Unknown");
+    // Process the uploaded file
+    processAudio(file);
   };
 
-  // ----- Inline Recording Functions (if needed) -----
+  // ----- Inline Recording Functions -----
   const mediaRecorderRefInline = useRef<MediaRecorder | null>(null);
   const inlineMediaStreamRef = useRef<MediaStream | null>(null);
   const startRecordingInline = async () => {
@@ -622,12 +580,9 @@ export default function Home() {
         const blob = new Blob(chunks, { type: options.mimeType });
         const url = URL.createObjectURL(blob);
         setRecordedAudioUrl(url);
-        chunks = [];
         setStage("uploading");
-        setTimeout(() => {
-          setStage("processing");
-          startProcessing();
-        }, 2000);
+        // Process the recorded audio
+        processAudio(blob);
       };
       recorder.start();
       mediaRecorderRefInline.current = recorder;
@@ -660,52 +615,7 @@ export default function Home() {
     setIsAudioMuted((prev) => !prev);
   };
 
-  // ----- Simulate Processing by Locking Segments -----
-  const startProcessing = () => {
-    let currentIdx = 0;
-    const intervalId = setInterval(() => {
-      setSegments((prev) =>
-        prev.map((seg, i) =>
-          i === currentIdx
-            ? {
-              ...seg,
-              locked: true,
-              valence: { ...seg.valence, target: seg.valence.value, speed: 0 },
-              arousal: { ...seg.arousal, target: seg.arousal.value, speed: 0 },
-              dominance: { ...seg.dominance, target: seg.dominance.value, speed: 0 },
-            }
-            : seg
-        )
-      );
-      currentIdx++;
-      if (currentIdx === totalSegments) {
-        clearInterval(intervalId);
-        setTimeout(() => {
-          const randomGenres = shuffleArray([
-            { name: "Pop", score: Math.random() },
-            { name: "Rock", score: Math.random() },
-            { name: "EDM", score: Math.random() },
-            { name: "Classical", score: Math.random() },
-            { name: "HipHop", score: Math.random() },
-            { name: "Jazz", score: Math.random() },
-            { name: "Metal", score: Math.random() },
-            { name: "Country", score: Math.random() },
-            { name: "Blues", score: Math.random() },
-            { name: "Reggae", score: Math.random() },
-            { name: "Punk", score: Math.random() },
-            { name: "RnB", score: Math.random() },
-            { name: "Folk", score: Math.random() },
-          ])
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 1);
-          setGenres(randomGenres);
-          setStage("finished");
-        }, 1000);
-      }
-    }, 5000);
-  };
-
-  // ----- Generate Smooth Path -----
+  // ----- Generate Smooth Path for Circular Chart -----
   const generateSmoothPath = (points: { x: number; y: number }[]): string => {
     if (points.length < 2) return "";
     let path = `M ${points[0].x} ${points[0].y}`;
@@ -724,14 +634,14 @@ export default function Home() {
     return path;
   };
 
-  // ----- Render Circular Area Chart -----
+  // ----- Render Circular Area Chart using Animated Segments -----
   const renderCircularAreaChart = () => {
     return (
       <svg width={400} height={400} viewBox="-200 -200 400 400" className="absolute">
         {shuffledSentiments.map(({ sentiment, opacity }) => {
-          const points = segments.map((seg, i) => {
-            const angle = (i / totalSegments) * 2 * Math.PI - Math.PI / 2;
-            const sentimentValue = seg[sentiment].value;
+          const points = animatedSegments.map((seg, i) => {
+            const angle = (i / (animatedSegments.length || 1)) * 2 * Math.PI - Math.PI / 2;
+            const sentimentValue = seg[sentiment];
             const r = 80 + sentimentValue * 50;
             const x = r * Math.cos(angle);
             const y = r * Math.sin(angle);
@@ -752,24 +662,25 @@ export default function Home() {
     );
   };
 
-  // ----- Prepare Data for Recharts -----
+  // ----- Prepare Data for Recharts using Animated Segments -----
   const prepareRechartsData = () => {
-    return segments.map((seg) => ({
+    return animatedSegments.map((seg) => ({
       time: `${seg.timeSec}s`,
-      Valence: parseFloat(seg.valence.value.toFixed(2)),
-      Arousal: parseFloat(seg.arousal.value.toFixed(2)),
-      Dominance: parseFloat(seg.dominance.value.toFixed(2)),
+      Valence: parseFloat(seg.valence.toFixed(2)),
+      Arousal: parseFloat(seg.arousal.toFixed(2)),
+      Dominance: parseFloat(seg.dominance.toFixed(2)),
     }));
   };
 
   // ----- Calculate Average Sentiment Values -----
   const calculateAverages = () => {
-    const total = segments.length;
-    const sum = segments.reduce(
+    const total = animatedSegments.length;
+    if (total === 0) return { valence: 0, arousal: 0, dominance: 0 };
+    const sum = animatedSegments.reduce(
       (acc, seg) => {
-        acc.valence += seg.valence.value;
-        acc.arousal += seg.arousal.value;
-        acc.dominance += seg.dominance.value;
+        acc.valence += seg.valence;
+        acc.arousal += seg.arousal;
+        acc.dominance += seg.dominance;
         return acc;
       },
       { valence: 0, arousal: 0, dominance: 0 }
@@ -820,29 +731,17 @@ export default function Home() {
   };
 
   // ----- Render Predicted Genre & Seeds Container -----
-  const topGenre =
-    genres && genres.length > 0
-      ? genres.reduce((max, g) => (g.score > max.score ? g : max), genres[0])
-      : null;
-
-  const seedsData: { label: string; icon: IconType; color: string }[] = [
-    { label: "Happy", icon: FaMusic, color: "text-yellow-500" },
-    { label: "Sad", icon: FaMicrophoneSlash, color: "text-blue-500" },
-    { label: "Excited", icon: FaDrum, color: "text-red-500" },
-    { label: "Calm", icon: FaHeadphones, color: "text-green-500" },
-  ];
-
   const renderGenreAndSeeds = () => {
     return (
       <div className="flex flex-col gap-4 h-full">
         <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
           <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
-          {topGenre ? (
+          {predictedGenre ? (
             <div className="flex items-center space-x-3">
-              {React.createElement(genreIconMap[topGenre.name] || FaMusic, {
+              {React.createElement(genreIconMap[predictedGenre] || FaMusic, {
                 className: "text-3xl text-indigo-600",
               })}
-              <span className="text-2xl font-medium">{topGenre.name}</span>
+              <span className="text-2xl font-medium">{predictedGenre}</span>
             </div>
           ) : (
             <span className="text-gray-500">No genre predicted</span>
@@ -851,7 +750,7 @@ export default function Home() {
         <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
           <h3 className="text-xl font-semibold mb-2 text-center">Seeds</h3>
           <div className="flex flex-wrap justify-center gap-2">
-            {seedsData.map((seed) => (
+            {seeds.map((seed) => (
               <div
                 key={seed.label}
                 className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full"
@@ -897,18 +796,32 @@ export default function Home() {
     );
   };
 
+  // Music notes state (remains unchanged)
+  const [musicNotes, setMusicNotes] = useState<MusicNoteData[]>([]);
+  useEffect(() => {
+    if (stage !== "processing") return;
+    const noteInterval = setInterval(() => {
+      const type = shuffleArray(noteTypes)[0];
+      const color = shuffleArray(["text-red-500", "text-blue-500", "text-green-500"])[0];
+      const angle = Math.random() * 360;
+      const newNote: MusicNoteData = { id: uuidv4(), angle, color, type };
+      setMusicNotes((prev) => [...prev, newNote]);
+      setTimeout(() => {
+        setMusicNotes((prev) => prev.filter((note) => note.id !== newNote.id));
+      }, 3000);
+    }, 500);
+    return () => clearInterval(noteInterval);
+  }, [stage]);
+
   const [showMobileNavbar, setShowMobileNavbar] = useState(true);
   const lastScrollY = useRef(0);
 
   useEffect(() => {
     const handleScroll = () => {
-      // Only apply the hide-on-scroll behavior on mobile (viewport width < 768px)
       if (window.innerWidth < 768) {
         if (window.scrollY > lastScrollY.current) {
-          // Scrolling down - hide the navbar
           setShowMobileNavbar(false);
         } else {
-          // Scrolling up - show the navbar
           setShowMobileNavbar(true);
         }
         lastScrollY.current = window.scrollY;
@@ -923,7 +836,9 @@ export default function Home() {
     setStage("idle");
     setRecordedAudioUrl(null);
     setUploadedAudioUrl(null);
-    setGenres([]);
+    setPredictedGenre(null);
+    setServerSegments([]);
+    setAnimatedSegments([]);
   };
 
   const renderMusicPlayer = () => {
@@ -949,7 +864,6 @@ export default function Home() {
           md:top-4 md:left-4 md:w-fit md:px-[0.3125rem] md:py-[0.3125rem] md:rounded-2xl`}
       >
         <div className="w-full flex justify-center dark:shadow-buttons-box-dark md:justify-start md:px-3 md:py-1">
-          {/* Home Button: Reset to allow new upload/record */}
           <button
             title="Home - Upload/Record New"
             onClick={resetApp}
@@ -965,7 +879,6 @@ export default function Home() {
             </svg>
           </button>
 
-          {/* Mute/Unmute Button */}
           <button
             title={isAudioMuted ? "Unmute Music" : "Mute Music"}
             onClick={toggleAudioMute}
@@ -978,7 +891,6 @@ export default function Home() {
             )}
           </button>
 
-          {/* GitHub Repo Button */}
           <button
             title="GitHub Repo"
             onClick={() =>
@@ -996,7 +908,6 @@ export default function Home() {
             </svg>
           </button>
 
-          {/* Product Paper Button */}
           <button
             title="Open Project Paper"
             onClick={() =>
@@ -1110,10 +1021,10 @@ export default function Home() {
               setRecordedAudioUrl(url);
               setShowRecordModal(false);
               setStage("uploading");
-              setTimeout(() => {
-                setStage("processing");
-                startProcessing();
-              }, 2000);
+              // For recorded audio, fetch the blob and process it
+              fetch(url)
+                .then((res) => res.blob())
+                .then(processAudio);
             }}
             mics={mics}
             selectedMic={selectedMic}
