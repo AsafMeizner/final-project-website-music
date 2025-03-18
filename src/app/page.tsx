@@ -2,38 +2,19 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
-import { IconType } from "react-icons";
-import {
-  FaMusic,
-  FaHeadphones,
-  FaGuitar,
-  FaDrum,
-  FaMicrophone,
-  FaMicrophoneSlash,
-  FaBook,
-} from "react-icons/fa";
-import { GiViolin, GiSaxophone } from "react-icons/gi";
-import { MdMusicNote, MdMusicOff } from "react-icons/md";
-import MusicPlayer from "@/app/components/musicPlayer";
 import { v4 as uuidv4 } from "uuid";
 import { motion, AnimatePresence } from "framer-motion";
-import { analyzeAudio } from "@/app/sentimentActions"; // Server action for audio analysis
+import MusicPlayer from "@/app/components/musicPlayer";
+import TopMenu from "@/app/components/TopMenu";
+import AudioUploadControls from "@/app/components/AudioUploadControls";
+import RecordModal from "@/app/components/RecordModal";
+import SpeakerWithWaves from "@/app/components/SpeakerWithWaves";
+import TimelineChart from "@/app/components/TimelineChart";
+import GenreAndSeeds from "@/app/components/GenreAndSeeds";
+import { analyzeAudio } from "@/app/sentimentActions";
+import { shuffleArray } from "@/app/utils/sentimentHelpers";
 
-/* ============================
-   Data Interfaces & Helpers
-============================ */
-
-// The server will return each segment as a simple number (not animated values)
+// Data interfaces
 interface ServerSegment {
   timeSec: number;
   valence: number;
@@ -41,417 +22,60 @@ interface ServerSegment {
   dominance: number;
 }
 
-interface GenrePrediction {
-  name: string;
-  score: number;
-}
-
 interface ShuffledSentiment {
   sentiment: "valence" | "arousal" | "dominance";
   opacity: number;
 }
 
-interface MusicNoteData {
-  id: string;
-  angle: number;
-  color: string;
-  type: IconType;
-}
-
-const genreIconMap: Record<string, IconType> = {
-  Pop: FaMusic,
-  Rock: FaGuitar,
-  HipHop: FaMicrophone,
-  EDM: FaHeadphones,
-  Classical: GiViolin,
-  Jazz: GiSaxophone,
-  Metal: FaDrum,
-  Country: FaGuitar,
-  Blues: FaGuitar,
-  Reggae: FaHeadphones,
-  Punk: FaDrum,
-  RnB: FaMicrophone,
-  Folk: FaGuitar,
-};
-
-const noteTypes: IconType[] = [FaMusic, MdMusicNote];
-
-const shuffleArray = <T,>(array: T[]): T[] =>
-  array.sort(() => Math.random() - 0.5);
-
-const getRGB = (sentiment: "valence" | "arousal" | "dominance"): string => {
-  switch (sentiment) {
-    case "valence":
-      return "136, 132, 216";
-    case "arousal":
-      return "130, 202, 157";
-    case "dominance":
-      return "255, 198, 88";
-    default:
-      return "0,0,0";
-  }
-};
-
-const getStrokeColor = (sentiment: "valence" | "arousal" | "dominance"): string => {
-  switch (sentiment) {
-    case "valence":
-      return "#8884d8";
-    case "arousal":
-      return "#82ca9d";
-    case "dominance":
-      return "#ffc658";
-    default:
-      return "#000000";
-  }
-};
-
-/* ============================
-   MusicNote Component
-============================ */
-interface MusicNoteProps {
-  id: string;
-  angle: number;
-  color: string;
-  type: IconType;
-  onAnimationEnd: (id: string) => void;
-}
-
-const MusicNote: React.FC<MusicNoteProps> = ({
-  id,
-  angle,
-  color,
-  type: Icon,
-  onAnimationEnd,
-}) => {
-  const [style, setStyle] = useState<React.CSSProperties>({
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    opacity: 1,
-    transition: "transform 3s ease-out, opacity 3s ease-out",
-    pointerEvents: "none",
-    fontSize: "24px",
-  });
-
-  useEffect(() => {
-    const distance = 150;
-    const radians = (angle * Math.PI) / 180;
-    const x = distance * Math.cos(radians);
-    const y = distance * Math.sin(radians);
-    const timer = setTimeout(() => {
-      setStyle({
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
-        opacity: 0,
-        transition: "transform 3s ease-out, opacity 3s ease-out",
-        pointerEvents: "none",
-        fontSize: "24px",
-      });
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [angle]);
-
-  return (
-    <Icon
-      style={style}
-      className={color}
-      onTransitionEnd={() => onAnimationEnd(id)}
-      aria-hidden="true"
-    />
-  );
-};
-
-/* ============================
-   RecordModal Component (Framer Motion)
-============================ */
-interface RecordModalProps {
-  onClose: () => void;
-  onRecordingComplete: (url: string) => void;
-  mics: MediaDeviceInfo[];
-  selectedMic: string | null;
-  setSelectedMic: (id: string) => void;
-}
-
-const RecordModal: React.FC<RecordModalProps> = ({
-  onClose,
-  onRecordingComplete,
-  mics,
-  selectedMic,
-  setSelectedMic,
-}) => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const chunksRef = useRef<BlobPart[]>([]);
-
-  const startRecording = async () => {
-    try {
-      const constraints = { audio: selectedMic ? { deviceId: { exact: selectedMic } } : true };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      mediaStreamRef.current = stream;
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = recorder;
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        onRecordingComplete(url);
-        stopAudioLevelMonitor();
-      };
-
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaStreamSource(stream);
-      const analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      source.connect(analyser);
-      analyserRef.current = analyser;
-      monitorAudioLevel();
-
-      recorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      console.error("Error starting recording:", error);
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-    }
-    setIsRecording(false);
-  };
-
-  const pauseResumeRecording = () => {
-    if (!mediaRecorderRef.current) return;
-    if (isPaused) {
-      mediaRecorderRef.current.resume();
-      setIsPaused(false);
-    } else {
-      mediaRecorderRef.current.pause();
-      setIsPaused(true);
-    }
-  };
-
-  const toggleMute = () => {
-    if (mediaStreamRef.current) {
-      const newMuted = !isMuted;
-      mediaStreamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = !newMuted;
-      });
-      setIsMuted(newMuted);
-    }
-  };
-
-  const monitorAudioLevel = useCallback(() => {
-    if (!analyserRef.current) return;
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteTimeDomainData(dataArray);
-    let sum = 0;
-    for (let i = 0; i < dataArray.length; i++) {
-      const normalized = (dataArray[i] - 128) / 128;
-      sum += Math.abs(normalized);
-    }
-    const avg = sum / dataArray.length;
-    setAudioLevel(avg);
-    animationFrameRef.current = requestAnimationFrame(monitorAudioLevel);
-  }, []);
-
-  const stopAudioLevelMonitor = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-  };
-
-  const handleBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      stopAudioLevelMonitor();
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={handleBackgroundClick}
-      >
-        <motion.div
-          className="bg-white rounded-lg p-6 w-80 shadow-lg"
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-        >
-          <h2 className="text-xl font-bold mb-4">Record Audio</h2>
-          {mics.length > 1 && (
-            <select
-              value={selectedMic || ""}
-              onChange={(e) => setSelectedMic(e.target.value)}
-              className="border rounded px-2 py-1 w-full mb-4"
-            >
-              {mics.map((mic) => (
-                <option key={mic.deviceId} value={mic.deviceId}>
-                  {mic.label || `Microphone ${mic.deviceId}`}
-                </option>
-              ))}
-            </select>
-          )}
-          <div className="flex flex-col items-center space-y-3">
-            <button
-              onClick={isRecording ? stopRecording : startRecording}
-              className={`w-full px-4 py-2 rounded-full transition ${isRecording
-                  ? "bg-red-600 hover:bg-red-500 animate-pulse"
-                  : "bg-green-600 hover:bg-green-500"
-                } text-white`}
-            >
-              {isRecording ? "Stop Recording" : "Start Recording"}
-            </button>
-            {isRecording && (
-              <button
-                onClick={pauseResumeRecording}
-                className="w-full px-4 py-2 rounded-full bg-blue-600 hover:bg-blue-500 text-white transition"
-              >
-                {isPaused ? "Resume Recording" : "Pause Recording"}
-              </button>
-            )}
-            {isRecording && (
-              <button
-                onClick={toggleMute}
-                className="w-full px-4 py-2 rounded-full bg-gray-800 hover:bg-gray-700 text-white transition"
-              >
-                {isMuted ? "Unmute Mic" : "Mute Mic"}
-              </button>
-            )}
-            {isRecording && (
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full"
-                  style={{ width: `${Math.min(audioLevel * 150, 100)}%` }}
-                />
-              </div>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="mt-4 text-sm text-red-600 hover:underline"
-          >
-            Cancel
-          </button>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
-};
-
-/* ============================
-   Genre & Seeds Component
-============================ */
-interface GenreSeed {
-  label: string;
-  icon: IconType;
-  color: string;
-}
-
-const seeds: GenreSeed[] = [
-  { label: "Happy", icon: FaMusic, color: "text-yellow-500" },
-  { label: "Sad", icon: FaMicrophoneSlash, color: "text-blue-500" },
-  { label: "Excited", icon: FaDrum, color: "text-red-500" },
-  { label: "Calm", icon: FaHeadphones, color: "text-green-500" },
-];
-
-const GenreAndSeeds: React.FC<{ genre?: string }> = ({ genre }) => {
-  return (
-    <div className="flex flex-col gap-4 h-full">
-      <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
-        <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
-        {genre ? (
-          <div className="flex items-center space-x-3">
-            {React.createElement(genreIconMap[genre] || FaMusic, {
-              className: "text-3xl text-indigo-600",
-            })}
-            <span className="text-2xl font-medium">{genre}</span>
-          </div>
-        ) : (
-          <span className="text-gray-500">No genre predicted</span>
-        )}
-      </div>
-      <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
-        <h3 className="text-xl font-semibold mb-2 text-center">Seeds</h3>
-        <div className="flex flex-wrap justify-center gap-2">
-          {seeds.map((seed) => (
-            <div
-              key={seed.label}
-              className="flex items-center space-x-1 bg-gray-100 px-3 py-1 rounded-full"
-            >
-              {React.createElement(seed.icon, { className: `text-2xl ${seed.color}` })}
-              <span className="font-medium text-lg text-center">{seed.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* ============================
-   Main Page Component
-============================ */
 export default function Home() {
-  // ----- Stage Management -----
+  // Stage management
   const [stage, setStage] = useState<"idle" | "uploading" | "processing" | "finished">("idle");
 
-  // ----- Audio Input State -----
+  // Audio state
   const [recording, setRecording] = useState(false);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
   const [isMicMuted, setIsMicMuted] = useState(false);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
 
-  // ----- Record Modal State -----
+  // Record modal state
   const [showRecordModal, setShowRecordModal] = useState(false);
 
-  // ----- Microphone Selection -----
+  // Microphone selection
   const [mics, setMics] = useState<MediaDeviceInfo[]>([]);
   const [selectedMic, setSelectedMic] = useState<string | null>(null);
 
-  // Metadata states for song title and artist
+  // Song metadata
   const [songName, setSongName] = useState("Unknown");
   const [artistName, setArtistName] = useState("Unknown");
 
-  // ----- Server-provided Sentiment Data & Animation -----
+  // Sentiment data & animation
   const [serverSegments, setServerSegments] = useState<ServerSegment[]>([]);
   const [animatedSegments, setAnimatedSegments] = useState<ServerSegment[]>([]);
   const [predictedGenre, setPredictedGenre] = useState<string | null>(null);
 
+  // Error state
+  const [error, setError] = useState<string | null>(null);
+
+  // Mobile navbar visibility
+  const [showMobileNavbar, setShowMobileNavbar] = useState(true);
+  const lastScrollY = useRef(0);
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.innerWidth < 768) {
+        if (window.scrollY > lastScrollY.current) {
+          setShowMobileNavbar(false);
+        } else {
+          setShowMobileNavbar(true);
+        }
+        lastScrollY.current = window.scrollY;
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Enumerate devices for recording
   useEffect(() => {
     navigator.mediaDevices
       .enumerateDevices()
@@ -465,48 +89,14 @@ export default function Home() {
       .catch((error) => console.error("Error enumerating devices:", error));
   }, []);
 
+  // When stage finishes, scroll to bottom
   useEffect(() => {
     if (stage === "finished") {
-      window.scrollTo({
-        top: document.body.scrollHeight,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }
   }, [stage]);
 
-  // ----- Sentiment Shuffling for Visual Effect -----
-  const sentiments: ("valence" | "arousal" | "dominance")[] = [
-    "valence",
-    "arousal",
-    "dominance",
-  ];
-  const [shuffledSentiments, setShuffledSentiments] = useState<ShuffledSentiment[]>(
-    () => {
-      const shuffled = shuffleArray(sentiments);
-      const opacities = shuffleArray([0.6, 0.5, 0.4]);
-      return shuffled.map((sentiment, index) => ({
-        sentiment,
-        opacity: opacities[index],
-      }));
-    }
-  );
-
-  useEffect(() => {
-    if (stage !== "processing") return;
-    const shuffleInterval = setInterval(() => {
-      const shuffled = shuffleArray(sentiments);
-      const opacities = shuffleArray([0.6, 0.5, 0.4]);
-      setShuffledSentiments(
-        shuffled.map((sentiment, index) => ({
-          sentiment,
-          opacity: opacities[index],
-        }))
-      );
-    }, 2000);
-    return () => clearInterval(shuffleInterval);
-  }, [stage]);
-
-  // ----- Animation Function (2 seconds per segment) -----
+  // Animation function for server segments
   const animateSegments = (segments: ServerSegment[]) => {
     let currentIdx = 0;
     const intervalId = setInterval(() => {
@@ -519,29 +109,26 @@ export default function Home() {
     }, 2000);
   };
 
-  // ----- Handle File Upload & Process Audio -----
-  const [error, setError] = useState<string | null>(null);
-
+  // Process audio file/recording
   const processAudio = async (audioBlob: Blob) => {
     try {
       const formData = new FormData();
       formData.append("audio", audioBlob);
-      // Call the server to analyze the audio file
       const { segments, genre } = await analyzeAudio(formData);
       setServerSegments(segments);
       setPredictedGenre(genre);
       setStage("uploading");
-      // After a short delay, start animating the segments
       setTimeout(() => {
         setStage("processing");
         animateSegments(segments);
       }, 2000);
-    } catch (error) {
-      console.error("Error processing audio:", error);
+    } catch (err) {
+      console.error("Error processing audio:", err);
       setError("There was an error processing your audio. Please try again.");
     }
   };
 
+  // Handle file upload from idle controls
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
@@ -552,11 +139,10 @@ export default function Home() {
     setError(null);
     setSongName(file.name);
     setArtistName("Unknown");
-    // Process the uploaded file
     processAudio(file);
   };
 
-  // ----- Inline Recording Functions -----
+  // Inline recording functions
   const mediaRecorderRefInline = useRef<MediaRecorder | null>(null);
   const inlineMediaStreamRef = useRef<MediaStream | null>(null);
   const startRecordingInline = async () => {
@@ -581,14 +167,13 @@ export default function Home() {
         const url = URL.createObjectURL(blob);
         setRecordedAudioUrl(url);
         setStage("uploading");
-        // Process the recorded audio
         processAudio(blob);
       };
       recorder.start();
       mediaRecorderRefInline.current = recorder;
       setRecording(true);
-    } catch (error) {
-      console.error("Error accessing microphone:", error);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
       setError("Could not access microphone.");
     }
   };
@@ -615,223 +200,7 @@ export default function Home() {
     setIsAudioMuted((prev) => !prev);
   };
 
-  // ----- Generate Smooth Path for Circular Chart -----
-  const generateSmoothPath = (points: { x: number; y: number }[]): string => {
-    if (points.length < 2) return "";
-    let path = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length; i++) {
-      const p0 = points[i === 0 ? points.length - 1 : i - 1];
-      const p1 = points[i];
-      const p2 = points[(i + 1) % points.length];
-      const p3 = points[(i + 2) % points.length];
-      const cp1x = p1.x + (p2.x - p0.x) * 0.2;
-      const cp1y = p1.y + (p2.y - p0.y) * 0.2;
-      const cp2x = p2.x - (p3.x - p1.x) * 0.2;
-      const cp2y = p2.y - (p3.y - p1.y) * 0.2;
-      path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
-    }
-    path += " Z";
-    return path;
-  };
-
-  // ----- Render Circular Area Chart using Animated Segments -----
-  const renderCircularAreaChart = () => {
-    return (
-      <svg width={400} height={400} viewBox="-200 -200 400 400" className="absolute">
-        {shuffledSentiments.map(({ sentiment, opacity }) => {
-          const points = animatedSegments.map((seg, i) => {
-            const angle = (i / (animatedSegments.length || 1)) * 2 * Math.PI - Math.PI / 2;
-            const sentimentValue = seg[sentiment];
-            const r = 80 + sentimentValue * 50;
-            const x = r * Math.cos(angle);
-            const y = r * Math.sin(angle);
-            return { x, y };
-          });
-          const path = generateSmoothPath(points);
-          return (
-            <path
-              key={sentiment}
-              d={path}
-              fill={`rgba(${getRGB(sentiment)}, ${opacity})`}
-              stroke={getStrokeColor(sentiment)}
-              strokeWidth={2}
-            />
-          );
-        })}
-      </svg>
-    );
-  };
-
-  // ----- Prepare Data for Recharts using Animated Segments -----
-  const prepareRechartsData = () => {
-    return animatedSegments.map((seg) => ({
-      time: `${seg.timeSec}s`,
-      Valence: parseFloat(seg.valence.toFixed(2)),
-      Arousal: parseFloat(seg.arousal.toFixed(2)),
-      Dominance: parseFloat(seg.dominance.toFixed(2)),
-    }));
-  };
-
-  // ----- Calculate Average Sentiment Values -----
-  const calculateAverages = () => {
-    const total = animatedSegments.length;
-    if (total === 0) return { valence: 0, arousal: 0, dominance: 0 };
-    const sum = animatedSegments.reduce(
-      (acc, seg) => {
-        acc.valence += seg.valence;
-        acc.arousal += seg.arousal;
-        acc.dominance += seg.dominance;
-        return acc;
-      },
-      { valence: 0, arousal: 0, dominance: 0 }
-    );
-    return {
-      valence: parseFloat((sum.valence / total).toFixed(2)),
-      arousal: parseFloat((sum.arousal / total).toFixed(2)),
-      dominance: parseFloat((sum.dominance / total).toFixed(2)),
-    };
-  };
-
-  // ----- Render Linear Timeline with Recharts -----
-  const renderLinearTimeline = () => {
-    if (stage !== "finished") return null;
-    const data = prepareRechartsData();
-    const averages = calculateAverages();
-    return (
-      <div className="w-full bg-white flex flex-col items-center rounded-lg shadow p-6 transition-transform duration-500 hover:scale-105">
-        <h2 className="text-xl font-semibold mb-4">Sentiment Over Time</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
-            <YAxis domain={[0, 1]} />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="Valence" stroke="#8884d8" />
-            <Line type="monotone" dataKey="Arousal" stroke="#82ca9d" />
-            <Line type="monotone" dataKey="Dominance" stroke="#ffc658" />
-          </LineChart>
-        </ResponsiveContainer>
-        <div className="mt-4 flex space-x-6">
-          <div className="flex items-center space-x-2">
-            <span className="w-3 h-3 bg-[#8884d8] rounded-full"></span>
-            <span>Average Valence: {averages.valence}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-3 h-3 bg-[#82ca9d] rounded-full"></span>
-            <span>Average Arousal: {averages.arousal}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="w-3 h-3 bg-[#ffc658] rounded-full"></span>
-            <span>Average Dominance: {averages.dominance}</span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ----- Render Predicted Genre & Seeds Container -----
-  const renderGenreAndSeeds = () => {
-    return (
-      <div className="flex flex-col gap-4 h-full">
-        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
-          <h3 className="text-xl font-semibold mb-2">Predicted Genre</h3>
-          {predictedGenre ? (
-            <div className="flex items-center space-x-3">
-              {React.createElement(genreIconMap[predictedGenre] || FaMusic, {
-                className: "text-3xl text-indigo-600",
-              })}
-              <span className="text-2xl font-medium">{predictedGenre}</span>
-            </div>
-          ) : (
-            <span className="text-gray-500">No genre predicted</span>
-          )}
-        </div>
-        <div className="flex-1 bg-white rounded-lg shadow p-6 flex flex-col items-center transition-transform duration-500 hover:scale-105">
-          <h3 className="text-xl font-semibold mb-2 text-center">Seeds</h3>
-          <div className="flex flex-wrap justify-center gap-2">
-            {seeds.map((seed) => (
-              <div
-                key={seed.label}
-                className="flex items-center space-x-1 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded-full"
-              >
-                {React.createElement(seed.icon, { className: `text-2xl ${seed.color}` })}
-                <span className="font-medium text-lg text-center">{seed.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ----- Render Speaker with Waves & Music Notes -----
-  const renderSpeakerWithWaves = () => {
-    return (
-      <div className="relative w-[400px] h-[400px] flex items-center justify-center transition-transform duration-500 hover:scale-105">
-        {renderCircularAreaChart()}
-        <div className="z-10">
-          <Image
-            src="/speaker.svg"
-            alt="Speaker"
-            width={120}
-            height={120}
-            className={`transition-transform duration-500 ${stage === "processing" ? "animate-pulse-scale animate-rotate-slow" : ""
-              }`}
-          />
-        </div>
-        {musicNotes.map((note) => (
-          <MusicNote
-            key={note.id}
-            id={note.id}
-            angle={note.angle}
-            color={note.color}
-            type={note.type}
-            onAnimationEnd={(id) =>
-              setMusicNotes((prev) => prev.filter((n) => n.id !== id))
-            }
-          />
-        ))}
-      </div>
-    );
-  };
-
-  // Music notes state (remains unchanged)
-  const [musicNotes, setMusicNotes] = useState<MusicNoteData[]>([]);
-  useEffect(() => {
-    if (stage !== "processing") return;
-    const noteInterval = setInterval(() => {
-      const type = shuffleArray(noteTypes)[0];
-      const color = shuffleArray(["text-red-500", "text-blue-500", "text-green-500"])[0];
-      const angle = Math.random() * 360;
-      const newNote: MusicNoteData = { id: uuidv4(), angle, color, type };
-      setMusicNotes((prev) => [...prev, newNote]);
-      setTimeout(() => {
-        setMusicNotes((prev) => prev.filter((note) => note.id !== newNote.id));
-      }, 3000);
-    }, 500);
-    return () => clearInterval(noteInterval);
-  }, [stage]);
-
-  const [showMobileNavbar, setShowMobileNavbar] = useState(true);
-  const lastScrollY = useRef(0);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (window.innerWidth < 768) {
-        if (window.scrollY > lastScrollY.current) {
-          setShowMobileNavbar(false);
-        } else {
-          setShowMobileNavbar(true);
-        }
-        lastScrollY.current = window.scrollY;
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
+  // Reset app to initial state
   const resetApp = () => {
     setStage("idle");
     setRecordedAudioUrl(null);
@@ -841,6 +210,7 @@ export default function Home() {
     setAnimatedSegments([]);
   };
 
+  // Render MusicPlayer if an audio URL is available
   const renderMusicPlayer = () => {
     const audioUrl = recordedAudioUrl || uploadedAudioUrl;
     if (!audioUrl) return null;
@@ -856,73 +226,17 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-50 to-indigo-50 transition-all duration-500 relative">
-      {/* top menu */}
-      <div
-        className={`fixed transition-transform duration-300 z-50 
-          ${showMobileNavbar ? "translate-y-0" : "-translate-y-full"} 
-          top-0 left-0 w-full bg-gray-800 shadow-box-up dark:bg-box-dark dark:shadow-box-dark-out
-          md:top-4 md:left-4 md:w-fit md:px-[0.3125rem] md:py-[0.3125rem] md:rounded-2xl`}
-      >
-        <div className="w-full flex justify-center dark:shadow-buttons-box-dark md:justify-start md:px-3 md:py-1">
-          <button
-            title="Home - Upload/Record New"
-            onClick={resetApp}
-            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-            </svg>
-          </button>
-
-          <button
-            title={isAudioMuted ? "Unmute Music" : "Mute Music"}
-            onClick={toggleAudioMute}
-            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
-          >
-            {isAudioMuted ? (
-              <MdMusicOff className="h-6 w-6" />
-            ) : (
-              <MdMusicNote className="h-6 w-6" />
-            )}
-          </button>
-
-          <button
-            title="GitHub Repo"
-            onClick={() =>
-              window.open("https://github.com/AsafMeizner/muse-music-sentiment-detection", "_blank")
-            }
-            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 0C5.37 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.725-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.745.083-.73.083-.73 1.205.085 1.84 1.237 1.84 1.237 1.07 1.835 2.807 1.305 3.492.997.108-.775.418-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.47-2.38 1.235-3.22-.124-.303-.535-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.49 11.49 0 013.003-.404c1.02.005 2.045.137 3.003.404 2.29-1.552 3.296-1.23 3.296-1.23.654 1.653.243 2.873.12 3.176.77.84 1.233 1.91 1.233 3.22 0 4.61-2.803 5.625-5.475 5.922.43.37.823 1.102.823 2.222 0 1.606-.015 2.898-.015 3.293 0 .322.216.694.825.576C20.565 21.797 24 17.303 24 12 24 5.373 18.627 0 12 0z" />
-            </svg>
-          </button>
-
-          <button
-            title="Open Project Paper"
-            onClick={() =>
-              window.open("https://github.com/AsafMeizner/muse-music-sentiment-detection", "_blank")
-            }
-            className="text-light-blue-light hover:text-gray-400 dark:text-gray-100 hover:scale-125 active:scale-100 border-2 inline-flex items-center mr-4 last-of-type:mr-0 p-2.5 border-transparent bg-light-secondary shadow-button-flat-nopressed hover:shadow-button-flat-pressed focus:opacity-100 focus:outline-none active:shadow-button-flat-pressed font-medium rounded-full text-sm text-center dark:bg-button-curved-default-dark dark:shadow-button-curved-default-dark dark:hover:bg-button-curved-pressed-dark dark:hover:shadow-button-curved-pressed-dark dark:active:bg-button-curved-pressed-dark dark:active:shadow-button-curved-pressed-dark dark:focus:bg-button-curved-pressed-dark dark:focus:shadow-button-curved-pressed-dark dark:border-0"
-          >
-            <FaBook className="h-5 w-6" />
-          </button>
-        </div>
-      </div>
+      {/* Top Menu */}
+      <TopMenu
+        isAudioMuted={isAudioMuted}
+        toggleAudioMute={toggleAudioMute}
+        resetApp={resetApp}
+        showNavbar={showMobileNavbar}
+      />
 
       <h1 className="text-3xl font-bold mb-8">Music Sentiment & Genre Analyzer</h1>
 
-      {/* Mute Toggle for Mic (when recording inline) */}
+      {/* Mute toggle for inline recording */}
       {recording && (
         <div className="fixed top-4 left-16 z-50">
           <button
@@ -931,53 +245,21 @@ export default function Home() {
             aria-label="Toggle Microphone Mute"
           >
             {isMicMuted ? (
-              <FaMicrophoneSlash className="h-6 w-6" />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9 4.879V2a1 1 0 112 0v2.879l1.292-1.293a1 1 0 111.415 1.414L12.414 7l2.293 2.293a1 1 0 01-1.415 1.414L11 8.414l-2.293 2.293a1 1 0 01-1.414-1.414L9.586 7 7.293 4.707a1 1 0 111.414-1.414L9 4.879z" />
+              </svg>
             ) : (
-              <FaMicrophone className="h-6 w-6" />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a1 1 0 00-1 1v5.586l-1.293-1.293a1 1 0 00-1.414 1.414L7.586 11 5.293 13.293a1 1 0 001.414 1.414L9 12.414V18a1 1 0 002 0v-5.586l1.293 1.293a1 1 0 001.414-1.414L12.414 11l2.293-2.293a1 1 0 00-1.414-1.414L11 8.586V3a1 1 0 00-1-1z" />
+              </svg>
             )}
           </button>
         </div>
       )}
 
-      {/* IDLE: Upload & Record Buttons */}
+      {/* IDLE: Upload & Record */}
       {stage === "idle" && (
-        <div className="flex flex-col items-center space-y-4 transition-all duration-500">
-          <div className="flex space-x-4">
-            <label
-              htmlFor="upload-audio"
-              className="cursor-pointer bg-indigo-600 text-white px-6 py-3 rounded-full hover:bg-indigo-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              aria-label="Upload Audio File"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Upload Audio</span>
-            </label>
-            <input
-              id="upload-audio"
-              type="file"
-              accept="audio/*"
-              onChange={handleFileUpload}
-              className="hidden"
-            />
-            <button
-              onClick={() => setShowRecordModal(true)}
-              className="bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-500 transition flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-red-300"
-              aria-label="Record Audio"
-            >
-              <FaMicrophone className="h-6 w-6" />
-              <span>Record Audio</span>
-            </button>
-          </div>
-          <Image src="/speaker.svg" alt="Speaker" width={120} height={120} className="opacity-50" />
-          {error && <div className="mt-4 text-red-500">{error}</div>}
-        </div>
+        <AudioUploadControls onFileUpload={handleFileUpload} onRecordClick={() => setShowRecordModal(true)} error={error} />
       )}
 
       {/* UPLOADING */}
@@ -991,22 +273,22 @@ export default function Home() {
       {/* PROCESSING: Audio auto-plays */}
       {stage === "processing" && (
         <div className="flex flex-col items-center">
-          {renderSpeakerWithWaves()}
+          <SpeakerWithWaves stage={stage} animatedSegments={animatedSegments} songName={songName} artistName={artistName} />
           {renderMusicPlayer()}
         </div>
       )}
 
-      {/* FINISHED: Audio does NOT auto-play */}
+      {/* FINISHED: Audio does not auto-play */}
       {stage === "finished" && (
         <div className="flex flex-col gap-8 w-full max-w-5xl mx-auto items-center">
-          {renderSpeakerWithWaves()}
+          <SpeakerWithWaves stage={stage} animatedSegments={animatedSegments} songName={songName} artistName={artistName} />
           {renderMusicPlayer()}
           <div className="flex flex-col md:flex-row gap-8 items-stretch">
             <div className="flex flex-col gap-8 md:w-1/3 items-center">
-              {renderGenreAndSeeds()}
+              <GenreAndSeeds genre={predictedGenre || undefined} />
             </div>
             <div className="md:w-2/3 flex justify-center w-full">
-              {renderLinearTimeline()}
+              <TimelineChart animatedSegments={animatedSegments} />
             </div>
           </div>
         </div>
@@ -1021,7 +303,6 @@ export default function Home() {
               setRecordedAudioUrl(url);
               setShowRecordModal(false);
               setStage("uploading");
-              // For recorded audio, fetch the blob and process it
               fetch(url)
                 .then((res) => res.blob())
                 .then(processAudio);
@@ -1075,6 +356,7 @@ export default function Home() {
         }
       `}</style>
 
+      {/* Asaf Meizner Signature */}
       <div className="button mt-4 relative md:fixed md:mt-0 md:top-6 md:right-12 scale-125 rounded-lg overflow-hidden">
         <div className="box">A</div>
         <div className="box"> </div>

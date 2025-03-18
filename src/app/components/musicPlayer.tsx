@@ -19,11 +19,8 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
   const [duration, setDuration] = useState(0);
 
   // --- Random Disc Design Setup ---
-
-  // Define several design variants – each is an array of five path strings.
   const designVariants = useMemo(() => {
     return [
-      // Variant 1: (Original-ish curves)
       [
         "M0 128 Q32 64 64 128 T128 128",
         "M0 128 Q32 48 64 128 T128 128",
@@ -31,7 +28,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
         "M0 128 Q16 64 32 128 T64 128",
         "M64 128 Q80 64 96 128 T128 128",
       ],
-      // Variant 2: Cubic Bezier curves for a more dramatic look
       [
         "M0 128 C32 0, 96 0, 128 128",
         "M0 128 C32 96, 96 96, 128 128",
@@ -39,7 +35,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
         "M0 128 C32 80, 96 80, 128 128",
         "M0 128 C32 64, 96 64, 128 128",
       ],
-      // Variant 3: Arcs and straight line for a different aesthetic
       [
         "M64 128 A64 64 0 0 1 0 64",
         "M64 128 A64 64 0 0 0 128 64",
@@ -50,25 +45,23 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     ];
   }, []);
 
-  // Randomly select one design variant for this run.
   const selectedVariant = useMemo(() => {
     const index = Math.floor(Math.random() * designVariants.length);
     return designVariants[index];
   }, [designVariants]);
 
-  // Curated palette of colors.
   const randomPathColors = useMemo(() => {
     const palette = [
-      "#FFD700", // Gold
-      "#800080", // Purple
-      "#000000", // Black
-      "#FF0000", // Red
-      "#0000FF", // Blue
-      "#008000", // Green
-      "#FF8C00", // DarkOrange
-      "#FF69B4", // HotPink
-      "#00BFFF", // DeepSkyBlue
-      "#4B0082", // Indigo
+      "#FFD700",
+      "#800080",
+      "#000000",
+      "#FF0000",
+      "#0000FF",
+      "#008000",
+      "#FF8C00",
+      "#FF69B4",
+      "#00BFFF",
+      "#4B0082",
     ];
     const available = [...palette];
     for (let i = available.length - 1; i > 0; i--) {
@@ -78,7 +71,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return available.slice(0, 5);
   }, []);
 
-  // --- Audio Controls ---
   const togglePlayPause = () => {
     if (!audioRef.current) return;
     if (isPlaying) {
@@ -116,7 +108,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
     return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
   };
 
-  // Freeze spin (large & small discs) when paused without resetting orientation.
   const spinStyle = { animationPlayState: isPlaying ? "running" : "paused" };
 
   return (
@@ -151,7 +142,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
       {/* Control Panel */}
       <div className="z-30 flex flex-col w-40 h-20 transition-all duration-300 bg-white shadow-md group-hover/he:h-40 group-hover/he:w-72 rounded-2xl shadow-zinc-400">
         <div className="flex flex-row w-full h-0 group-hover/he:h-20">
-          {/* Small Disk Container: scales down when hidden */}
           <div className="relative flex items-center justify-center w-24 h-24 transform scale-50 group-hover/he:scale-100 group-hover/he:-top-6 group-hover/he:-left-4 opacity-0 group-hover/he:opacity-100 transition-all duration-100">
             <svg
               width={96}
@@ -204,7 +194,6 @@ const MusicPlayer: React.FC<MusicPlayerProps> = ({
             {formatTime(duration)}
           </span>
         </div>
-        {/* Control Buttons: Only Skip Back 10 sec, Play/Pause, Skip Forward 10 sec */}
         <div className="flex flex-row items-center justify-center flex-grow mx-3 space-x-5">
           <div
             className="flex items-center justify-center w-12 h-full cursor-pointer"
