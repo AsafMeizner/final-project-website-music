@@ -19,12 +19,17 @@ interface ServerSegment {
   timeSec: number;
   valence: number;
   arousal: number;
-  dominance: number;
 }
 
-interface ShuffledSentiment {
-  sentiment: "valence" | "arousal" | "dominance";
-  opacity: number;
+interface GenreData {
+  predicted_genre: string;
+  confidence: number;
+  top_genres: { genre: string; confidence: number }[];
+}
+
+interface EmotionData {
+  top_emotion: { code: string; name: string; distance: number };
+  top_emotions: { code: string; name: string; distance: number }[];
 }
 
 export default function Home() {
@@ -52,7 +57,8 @@ export default function Home() {
   // Sentiment data & animation
   const [serverSegments, setServerSegments] = useState<ServerSegment[]>([]);
   const [animatedSegments, setAnimatedSegments] = useState<ServerSegment[]>([]);
-  const [predictedGenre, setPredictedGenre] = useState<string | null>(null);
+  const [predictedGenre, setPredictedGenre] = useState<GenreData | null>(null);
+  const [emotions, setEmotions] = useState<EmotionData | null>(null);
 
   // Error state
   const [error, setError] = useState<string | null>(null);
@@ -114,9 +120,10 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("audio", audioBlob);
-      const { segments, genre } = await analyzeAudio(formData);
+      const { segments, genre, emotions } = await analyzeAudio(formData);
       setServerSegments(segments);
       setPredictedGenre(genre);
+      setEmotions(emotions);
       setStage("uploading");
       setTimeout(() => {
         setStage("processing");
@@ -285,7 +292,7 @@ export default function Home() {
           {renderMusicPlayer()}
           <div className="flex flex-col md:flex-row gap-8 items-stretch">
             <div className="flex flex-col gap-8 md:w-1/3 items-center">
-              <GenreAndSeeds genre={predictedGenre || undefined} />
+              <GenreAndSeeds genre={predictedGenre} emotions={emotions} />
             </div>
             <div className="md:w-2/3 flex justify-center w-full">
               <TimelineChart animatedSegments={animatedSegments} />

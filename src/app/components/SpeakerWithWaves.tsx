@@ -11,13 +11,13 @@ export interface ServerSegment {
   timeSec: number;
   valence: number;
   arousal: number;
-  dominance: number;
 }
 
 export interface ShuffledSentiment {
-  sentiment: "valence" | "arousal" | "dominance";
+  sentiment: "valence" | "arousal";
   opacity: number;
 }
+
 export interface MusicNoteData {
   id: string;
   angle: number;
@@ -31,15 +31,16 @@ interface SpeakerWithWavesProps {
   songName: string;
   artistName: string;
 }
+
 const noteTypes: IconType[] = [FaMusic, MdMusicNote];
 
 const SpeakerWithWaves: React.FC<SpeakerWithWavesProps> = ({ stage, animatedSegments, songName, artistName }) => {
   // Sentiment shuffling state
-  const sentiments: ("valence" | "arousal" | "dominance")[] = ["valence", "arousal", "dominance"];
+  const sentiments: ("valence" | "arousal")[] = ["valence", "arousal"];
   const [shuffledSentiments, setShuffledSentiments] = useState<ShuffledSentiment[]>(
     () => {
       const shuf = shuffleArray(sentiments);
-      const opacities = shuffleArray([0.6, 0.5, 0.4]);
+      const opacities = shuffleArray([0.6, 0.5]);
       return shuf.map((s, i) => ({ sentiment: s, opacity: opacities[i] }));
     }
   );
@@ -48,7 +49,7 @@ const SpeakerWithWaves: React.FC<SpeakerWithWavesProps> = ({ stage, animatedSegm
     if (stage !== "processing") return;
     const interval = setInterval(() => {
       const shuf = shuffleArray(sentiments);
-      const opacities = shuffleArray([0.6, 0.5, 0.4]);
+      const opacities = shuffleArray([0.6, 0.5]);
       setShuffledSentiments(shuf.map((s, i) => ({ sentiment: s, opacity: opacities[i] })));
     }, 2000);
     return () => clearInterval(interval);
@@ -78,7 +79,7 @@ const SpeakerWithWaves: React.FC<SpeakerWithWavesProps> = ({ stage, animatedSegm
           const points = animatedSegments.map((seg, i) => {
             const angle = (i / (animatedSegments.length || 1)) * 2 * Math.PI - Math.PI / 2;
             const sentimentValue = seg[sentiment];
-            const r = 80 + sentimentValue * 50;
+            const r = 80 + sentimentValue * 200; // Adjusted scaling for better visibility
             const x = r * Math.cos(angle);
             const y = r * Math.sin(angle);
             return { x, y };
