@@ -16,17 +16,14 @@ export async function analyzeAudio(formData: FormData): Promise<{
     top_emotions: { code: string; name: string; distance: number }[];
   };
 }> {
-  // Get the audio file from the formData
   const audioFile = formData.get("audio");
   if (!audioFile || !(audioFile instanceof Blob)) {
     throw new Error("Audio file not provided or invalid.");
   }
 
-  // Create a new FormData object for the API request
   const apiFormData = new FormData();
   apiFormData.append("file", audioFile);
 
-  // Send the request to the API
   const response = await fetch("http://localhost:8000/analysis/combined", {
     method: "POST",
     body: apiFormData,
@@ -39,10 +36,10 @@ export async function analyzeAudio(formData: FormData): Promise<{
   const data = await response.json();
 
   // Transform the API response into the format expected by the frontend
-  const segments = data.sentiment.segment_analysis.map((segment: any) => ({
+  const segments = data.sentiment.segments.map((segment: any) => ({
     timeSec: segment.time_range.start,
-    valence: segment.scaled_prediction.valence,
-    arousal: segment.scaled_prediction.arousal,
+    valence: segment.valence,
+    arousal: segment.arousal,
   }));
 
   return {
